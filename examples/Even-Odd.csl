@@ -1,0 +1,31 @@
+
+MARKING {
+  x: succ(succ(succ(succ(succ(zero)))))
+}
+
+TRANSITION even {
+  MATCH {
+    x: zero
+  }
+  PRODUCE {
+    result: even
+  }
+}
+
+TRANSITION odd {
+  MATCH {
+    x: succ(zero)
+  }
+  PRODUCE {
+    result: odd
+  }
+}
+
+TRANSITION minusTwo {
+  MATCH {
+    x: succ(succ(X))
+  }
+  PRODUCE {
+    x: X
+  }
+}

@@ -1,0 +1,22 @@
+
+plus(zero, X) -> X
+plus(succ(X), Y) -> succ(plus(X, Y))
+
+MARKING {
+  x: plus(succ(zero), succ(zero))
+  y: succ(succ(succ(zero)))
+  product: zero
+}
+
+TRANSITION add {
+  MATCH {
+    x: succ(X)
+    y: Y
+    product: Product
+  }
+  PRODUCE {
+    x: X
+    y: Y
+    product: plus(Product, Y)
+  }
+}

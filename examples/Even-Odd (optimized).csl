@@ -1,0 +1,16 @@
+f(zero) -> even
+f(succ(zero)) -> odd
+f(succ(succ(X))) -> f(X)
+
+MARKING {
+  x: succ(succ(succ(succ(succ(zero)))))
+}
+
+TRANSITION eval {
+  MATCH {
+    x: X
+  }
+  PRODUCE {
+    result: f(X)
+  }
+}
