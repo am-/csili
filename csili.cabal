@@ -9,7 +9,7 @@ license:             BSD2
 license-file:        LICENSE
 author:              Andre Moelle
 maintainer:          andre.moelle@nordic-dev.de
-copyright:           Copyright (c) 2016
+copyright:           Copyright (c) 2016, Andre Moelle
 -- category:            
 build-type:          Simple
 -- extra-source-files:  
