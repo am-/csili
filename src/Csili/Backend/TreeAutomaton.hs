@@ -46,6 +46,9 @@ states = Set.fromList . concatMap (catMaybes . map fromAction . Map.elems) . Map
         NextState s -> Just s
         Apply _ -> Nothing
 
+unions :: Ord a => [TreeAutomaton a] -> TreeAutomaton [a]
+unions = TreeAutomaton . Map.unionsWith undefined . map delta
+
 --------------------------------------------------------------------------------
 -- Normalization
 --------------------------------------------------------------------------------
