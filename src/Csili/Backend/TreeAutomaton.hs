@@ -12,7 +12,7 @@ import Data.IntSet (IntSet)
 import qualified Data.IntSet as IntSet
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, mapMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
 
@@ -21,12 +21,15 @@ import Csili.Types
 data Action a
     = NextState a
     | Apply Rule
+    | Reset
     deriving (Show, Eq, Ord)
 
 data Match a
     = State a
     | AnythingDifferent
     deriving (Show, Eq, Ord)
+
+type Delta a = Map Symbol (Map [Match a] (Action a))
 
 data TreeAutomaton a = TreeAutomaton
     { delta :: Map Symbol (Map [Match a] (Action a))
@@ -35,19 +38,37 @@ data TreeAutomaton a = TreeAutomaton
 fromRule :: Rule -> TreeAutomaton a
 fromRule (lhs, rhs) = undefined
 
+fromTerm :: Term -> TreeAutomaton Int
+fromTerm = TreeAutomaton . \case
+    Function symbol args -> case args of
+        [] -> Map.singleton symbol (Map.singleton [] (NextState 1))
+        [argument] ->
+              let childDelta = delta . fromTerm $ argument
+                  largestState = findLargestState childDelta
+              in  Map.insertWith Map.union symbol (Map.singleton [State largestState] (NextState $ largestState + 1)) childDelta
+        _ -> undefined
+    Variable _ -> undefined
+    Promise _ _ -> undefined
+    Future _ -> undefined
+
+findLargestState :: Ord a => Delta a -> a
+findLargestState = maximum . mapMaybe (fromAction . snd)
+                 . concatMap (Map.toList . snd) . Map.toList
+
 alphabet :: TreeAutomaton a -> Set Symbol
 alphabet = Map.keysSet . delta
 
 states :: Ord a => TreeAutomaton a -> Set a
 states = Set.fromList . concatMap (catMaybes . map fromAction . Map.elems) . Map.elems . delta
-  where
-    fromAction :: Action a -> Maybe a
-    fromAction = \case
-        NextState s -> Just s
-        Apply _ -> Nothing
+
+fromAction :: Action a -> Maybe a
+fromAction = \case
+    NextState s -> Just s
+    Apply _ -> Nothing
+    Reset -> Nothing
 
 unions :: Ord a => [TreeAutomaton a] -> TreeAutomaton [a]
-unions = TreeAutomaton . Map.unionsWith undefined . map delta
+unions = TreeAutomaton . undefined . map delta
 
 --------------------------------------------------------------------------------
 -- Normalization
