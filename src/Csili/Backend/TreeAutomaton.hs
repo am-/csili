@@ -89,6 +89,7 @@ renameAction newNames = \case
         Nothing -> undefined
         Just b -> NextState b
     Apply rule -> Apply rule
+    Reset -> Reset
 
 renameMatch :: Ord a => Map a b -> Match a -> Match b
 renameMatch newNames = \case
