@@ -18,48 +18,46 @@ import qualified Data.Set as Set
 
 import Csili.Types
 
+--------------------------------------------------------------------------------
+-- Rule Conversion
+--------------------------------------------------------------------------------
+
+fromRuleSet :: [Rule] -> DeterministicTreeAutomaton Int
+fromRuleSet = normalize . determinize . unions . map fromRule
+
+fromRule :: Rule -> NonDeterministicTreeAutomaton Int
+fromRule (lhs, rhs) = undefined
+
+fromTerm :: Term -> NonDeterministicTreeAutomaton Int
+fromTerm = Delta . \case
+    Function symbol args
+        | null args -> undefined
+        | otherwise -> undefined
+    Variable _ -> undefined
+    Promise _ _ -> undefined
+    Future _ -> undefined
+
+--------------------------------------------------------------------------------
+-- Tree Automata
+--------------------------------------------------------------------------------
+
+newtype Delta match action = Delta (Map Symbol (Map match action))
+    deriving (Show, Eq)
+
+delta :: Delta match action -> Map Symbol (Map match action)
+delta (Delta relation) = relation
+
+alphabet :: Delta match action -> Set Symbol
+alphabet = Map.keysSet . delta
+
+states :: Ord state => (action -> Set state) -> Delta match action -> Set state
+states extractor = Set.unions . concatMap (map extractor . Map.elems) . Map.elems . delta
+
 data Action a
     = NextState a
     | Apply Rule
     | Reset
     deriving (Show, Eq, Ord)
-
-data Match a
-    = State a
-    | AnythingDifferent
-    deriving (Show, Eq, Ord)
-
-type Delta a = Map Symbol (Map [Match a] (Action a))
-
-data TreeAutomaton a = TreeAutomaton
-    { delta :: Map Symbol (Map [Match a] (Action a))
-    } deriving (Show, Eq)
-
-fromRule :: Rule -> TreeAutomaton a
-fromRule (lhs, rhs) = undefined
-
-fromTerm :: Term -> TreeAutomaton Int
-fromTerm = TreeAutomaton . \case
-    Function symbol args -> case args of
-        [] -> Map.singleton symbol (Map.singleton [] (NextState 1))
-        [argument] ->
-              let childDelta = delta . fromTerm $ argument
-                  largestState = findLargestState childDelta
-              in  Map.insertWith Map.union symbol (Map.singleton [State largestState] (NextState $ largestState + 1)) childDelta
-        _ -> undefined
-    Variable _ -> undefined
-    Promise _ _ -> undefined
-    Future _ -> undefined
-
-findLargestState :: Ord a => Delta a -> a
-findLargestState = maximum . mapMaybe (fromAction . snd)
-                 . concatMap (Map.toList . snd) . Map.toList
-
-alphabet :: TreeAutomaton a -> Set Symbol
-alphabet = Map.keysSet . delta
-
-states :: Ord a => TreeAutomaton a -> Set a
-states = Set.fromList . concatMap (catMaybes . map fromAction . Map.elems) . Map.elems . delta
 
 fromAction :: Action a -> Maybe a
 fromAction = \case
@@ -67,21 +65,10 @@ fromAction = \case
     Apply _ -> Nothing
     Reset -> Nothing
 
-unions :: Ord a => [TreeAutomaton a] -> TreeAutomaton [a]
-unions = TreeAutomaton . undefined . map delta
-
---------------------------------------------------------------------------------
--- Normalization
---------------------------------------------------------------------------------
-
-normalize :: Ord a => TreeAutomaton a -> TreeAutomaton Int
-normalize = flip renameStates <*> Map.fromList . flip zip [0..] . Set.toList . states
-
-renameStates :: (Ord a, Ord b) => Map a b -> TreeAutomaton a -> TreeAutomaton b
-renameStates newNames = TreeAutomaton . Map.map (renameDelta newNames) . delta
-
-renameDelta :: (Ord a, Ord b) => Map a b -> Map [Match a] (Action a) -> Map [Match b] (Action b)
-renameDelta newNames = Map.mapKeys (map (renameMatch newNames)) . Map.map (renameAction newNames)
+data Match a
+    = State a
+    | AnythingDifferent
+    deriving (Show, Eq, Ord)
 
 renameAction :: Ord a => Map a b -> Action a -> Action b
 renameAction newNames = \case
@@ -97,3 +84,38 @@ renameMatch newNames = \case
         Nothing -> undefined
         Just b -> State b
     AnythingDifferent -> AnythingDifferent
+
+--------------------------------------------------------------------------------
+-- Deterministic Tree Automata
+--------------------------------------------------------------------------------
+
+type DeterministicAction = Action
+type DeterministicTreeAutomaton state = Delta [Match state] (DeterministicAction state)
+
+fromDeterministicAction :: Ord state => DeterministicAction state -> Set state
+fromDeterministicAction = maybe Set.empty Set.singleton . fromAction
+
+normalize :: Ord a => DeterministicTreeAutomaton a -> DeterministicTreeAutomaton Int
+normalize = flip renameStates <*> Map.fromList . flip zip [0..] . Set.toList . states fromDeterministicAction
+
+renameStates :: (Ord a, Ord b) => Map a b -> DeterministicTreeAutomaton a -> DeterministicTreeAutomaton b
+renameStates newNames = Delta . Map.map (renameDelta newNames) . delta
+
+renameDelta :: (Ord a, Ord b) => Map a b -> Map [Match a] (Action a) -> Map [Match b] (Action b)
+renameDelta newNames = Map.mapKeys (map (renameMatch newNames)) . Map.map (renameAction newNames)
+
+--------------------------------------------------------------------------------
+-- Non-deterministic Tree Automata
+--------------------------------------------------------------------------------
+
+type NonDeterministicAction state = [Action state]
+type NonDeterministicTreeAutomaton state = Delta [Match state] (NonDeterministicAction state)
+
+fromNonDeterministicAction :: Ord state => NonDeterministicAction state -> Set state
+fromNonDeterministicAction = Set.unions . map (maybe Set.empty Set.singleton . fromAction)
+
+unions :: Ord a => [NonDeterministicTreeAutomaton a] -> NonDeterministicTreeAutomaton [a]
+unions = undefined
+
+determinize :: NonDeterministicTreeAutomaton a -> DeterministicTreeAutomaton [a]
+determinize = undefined
