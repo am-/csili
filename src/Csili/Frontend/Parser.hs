@@ -62,7 +62,7 @@ function :: Parser Term
 function = uncurry Function <$> generalTerm (Symbol <$> lowerCaseIdentifier) term
 
 --------------------------------------------------------------------------------
---
+-- Petri net parser
 --------------------------------------------------------------------------------
 
 place :: Parser Place
