@@ -47,9 +47,12 @@ struct term* rewrite(struct term*);
 // Garbage Collector
 ////////////////////////////////////////////////////////////////////////////////
 
-void deallocate_term(struct term* term) {
+int allocated_terms = 0;
+struct term* allocated_term[65536];
+
+bool deallocate_term(struct term* term) {
   if(term->references > 0) {
-    return;
+    return false;
   }
   
   switch(term->type) {
@@ -59,19 +62,19 @@ void deallocate_term(struct term* term) {
       deallocate_term(term->value.function->arguments[i]);
     }
     free(term);
-    return;
+    return true;
     
   case STRING:
     free(term->value.string_value);
     free(term);
-    return;
+    return true;
     
   case INT:
   case DOUBLE:
   case CHAR:
   case FUTURE:
     free(term);
-    return;
+    return true;
   }
 }
 
@@ -156,47 +159,15 @@ struct term* copy_term(struct term* term) {
   }
 }
 
-void mark(struct term* term) {
-  if(term == NULL) {
-    return;
-  }
-  
-  term->last_seen = current_round;
-  switch(term->type) {
-  case INT:
-  case DOUBLE:
-  case CHAR:
-  case STRING:
-  case FUTURE:
-    return;
-  case FUNCTION:
-    for(int i = 0; i < term->value.function->arity; i++) {
-      mark(term->value.function->arguments[i]);
-    }
-    return;
-  }
-}
-
-void sweep() {
+void garbage_collect() {
   int i = 0;
-  while(i < allocated_terms && allocated_term[i]->last_seen != current_round) {
-    if(allocated_term[i]->last_seen != current_round) {
-      deallocate_term(allocated_term[i]);
+  while(i < allocated_terms) {
+    if(deallocate_term(allocated_term[i])) {
       allocated_term[i] = allocated_term[--allocated_terms];
     } else {
       i++;
     }
   }
-}
-
-void garbage_collect() {
-  current_round++;
-  
-  for(int i = 0; i < PLACES; i++) {
-      mark(places[i]);
-  }
-
-  sweep();
 }
 
 void print_term(struct term* term) {
@@ -362,7 +333,7 @@ int main() {
 
   struct term* arguments_fsssss[1] = { sssssz };
   struct term* fsssssz = allocate_function(TERM_f, 1, arguments_fsssss);
-  
+
   print_term(fsssssz);
   printf("\n");
   print_term(normalize(fsssssz));
