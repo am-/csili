@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define UNDEFINED_STATE UINT32_MAX
+
 #define PLACES 20
 #define TRANSITIONS 10
 
@@ -21,6 +23,7 @@ typedef enum { INT, DOUBLE, CHAR, STRING, FUNCTION, FUTURE } term_type;
 
 struct term {
   term_type type;
+  uint32_t state;
   uint8_t references;
   union {
     int int_value;
@@ -75,6 +78,7 @@ void deallocate_term(struct term* term) {
 struct term* allocate_int(int value) {
   struct term* term = malloc(sizeof *term);
   term->type = INT;
+  term->state = UNDEFINED_STATE;
   term->references = 1;
   term->value.int_value = value;
   allocated_term[allocated_terms++] = term;
@@ -84,6 +88,7 @@ struct term* allocate_int(int value) {
 struct term* allocate_double(int value) {
   struct term* term = malloc(sizeof *term);
   term->type = DOUBLE;
+  term->state = UNDEFINED_STATE;
   term->references = 1;
   term->value.double_value = value;
   allocated_term[allocated_terms++] = term;
@@ -93,6 +98,7 @@ struct term* allocate_double(int value) {
 struct term* allocate_char(int value) {
   struct term* term = malloc(sizeof *term);
   term->type = CHAR;
+  term->state = UNDEFINED_STATE;
   term->references = 1;
   term->value.char_value = value;
   allocated_term[allocated_terms++] = term;
@@ -102,6 +108,7 @@ struct term* allocate_char(int value) {
 struct term* allocate_string(char* string) {
   struct term* term = malloc(sizeof *term);
   term->type = STRING;
+  term->state = UNDEFINED_STATE;
   term->references = 1;
   term->value.string_value = calloc(1 + strlen(string), sizeof(char));
   strcpy(term->value.string_value, string);
@@ -119,6 +126,7 @@ struct term* allocate_function(uint32_t symbol, uint32_t arity, struct term* arg
   
   struct term* term = malloc(sizeof *term);
   term->type = FUNCTION;
+  term->state = UNDEFINED_STATE;
   term->references = 1;
   term->value.function = function;
   allocated_term[allocated_terms++] = term;
