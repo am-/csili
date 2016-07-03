@@ -36,33 +36,30 @@ generateRules rules = T.intercalate "\n" $ concat
 generateRule :: Rule -> [Text]
 generateRule (lhs, rhs) = concat
     [ [T.concat ["if(", generateMatch "term" lhs, ") {"]]
-    , map (T.append "  ") $ generateRewrite (collectVariables lhs) rhs
+    , map (T.append "  ") $ generateRewrite (collectVariables lhs) "" rhs
     , [ "  return new_term;"
       , "}"
       ]
     ]
 
-generateRewrite :: Map Var Text -> Term -> [Text]
-generateRewrite variablesMap = go ""
-  where
-    go :: Text -> Term -> [Text]
-    go suffix = \case
-        Function (Symbol symbol) args ->
-            let extendWithNumber current = T.append current . T.cons '_' . T.pack . show
-                termVariable = T.append "new_term" suffix
-                argumentsVariable = T.append "arguments" suffix
-                argumentVariables = T.intercalate ", " (zipWith (const $ extendWithNumber termVariable) args [0..])
-                arguments = T.concat ["struct term* ", argumentsVariable, "[] = { ", argumentVariables, " };"]
-                symbolConstant = T.append "TERM_" symbol
-                arity = T.pack . show . length $ args
-                allocationArguments = T.intercalate ", " [symbolConstant, arity, argumentsVariable]
-                allocation = T.concat ["struct term* ", termVariable, " = allocate_function(", allocationArguments, ");"]
-            in  concat (zipWith (go . extendWithNumber suffix) [0..] args) ++ [arguments, allocation]
-        Variable var -> case Map.lookup var variablesMap of
-            Nothing -> undefined
-            Just term -> [T.concat ["new_term", suffix, " = ", term, ";"]]
-        Promise _ _ -> undefined
-        Future _ -> undefined
+generateRewrite :: Map Var Text -> Text -> Term -> [Text]
+generateRewrite variablesMap suffix = \case
+    Function (Symbol symbol) args ->
+        let extendWithNumber current = T.append current . T.cons '_' . T.pack . show
+            termVariable = T.append "new_term" suffix
+            argumentsVariable = T.append "arguments" suffix
+            argumentVariables = T.intercalate ", " (zipWith (const $ extendWithNumber termVariable) args [0..])
+            arguments = T.concat ["struct term* ", argumentsVariable, "[] = { ", argumentVariables, " };"]
+            symbolConstant = T.append "TERM_" symbol
+            arity = T.pack . show . length $ args
+            allocationArguments = T.intercalate ", " [symbolConstant, arity, argumentsVariable]
+            allocation = T.concat ["struct term* ", termVariable, " = allocate_function(", allocationArguments, ");"]
+        in  concat (zipWith (generateRewrite variablesMap . extendWithNumber suffix) [0..] args) ++ [arguments, allocation]
+    Variable var -> case Map.lookup var variablesMap of
+        Nothing -> undefined
+        Just term -> [T.concat ["new_term", suffix, " = ", term, ";"]]
+    Promise _ _ -> undefined
+    Future _ -> undefined
 
 collectVariables :: Term -> Map Var Text
 collectVariables = Map.fromList . mapMaybe extractVariable . buildLocationsInPreOrder "term"
