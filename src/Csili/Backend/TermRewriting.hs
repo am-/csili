@@ -35,7 +35,7 @@ generateRules rules = T.intercalate "\n" $ concat
 
 generateRule :: Rule -> [Text]
 generateRule (lhs, rhs) = concat
-    [ [T.concat ["if(", generateMatch lhs, ") {"]]
+    [ [T.concat ["if(", generateMatch "term" lhs, ") {"]]
     , map (T.append "  ") $ generateRewrite (collectVariables lhs) rhs
     , [ "  return new_term;"
       , "}"
@@ -65,7 +65,7 @@ generateRewrite variablesMap = go ""
         Future _ -> undefined
 
 collectVariables :: Term -> Map Var Text
-collectVariables = Map.fromList . mapMaybe extractVariable . buildLocationsInPreOrder
+collectVariables = Map.fromList . mapMaybe extractVariable . buildLocationsInPreOrder "term"
   where
     extractVariable :: (Term, Text) -> Maybe (Var, Text)
     extractVariable (term, location) = flip (,) location <$> case term of
@@ -78,8 +78,10 @@ collectVariables = Map.fromList . mapMaybe extractVariable . buildLocationsInPre
 -- Pattern matching
 --------------------------------------------------------------------------------
 
-generateMatch :: Term -> Text
-generateMatch = conjoin . concatMap (uncurry buildCondition . swap) . buildLocationsInPreOrder
+generateMatch :: Text -> Term -> Text
+generateMatch variable
+    = conjoin . concatMap (uncurry buildCondition . swap)
+    . buildLocationsInPreOrder variable
   where
     conjoin :: [Text] -> Text
     conjoin conditions
@@ -119,14 +121,11 @@ collectSymbols = \case
 -- Utility functions
 --------------------------------------------------------------------------------
 
-buildLocationsInPreOrder :: Term -> [(Term, Text)]
-buildLocationsInPreOrder = go "term"
-  where
-    go :: Text -> Term -> [(Term, Text)]
-    go variable term = (term, variable) : case term of
-        Function _ args ->
-          let enter index = T.concat [variable, "->value.function->arguments[", T.pack (show index), "]"]
-          in  concat (zipWith (go . enter) [0..] args)
-        Variable _ -> []
-        Promise _ _ -> []
-        Future _ -> []
+buildLocationsInPreOrder :: Text -> Term -> [(Term, Text)]
+buildLocationsInPreOrder variable term = (term, variable) : case term of
+    Function _ args ->
+        let enter index = T.concat [variable, "->value.function->arguments[", T.pack (show index), "]"]
+        in  concat (zipWith (buildLocationsInPreOrder . enter) [0..] args)
+    Variable _ -> []
+    Promise _ _ -> []
+    Future _ -> []
