@@ -11,6 +11,7 @@ module Csili.Semantics
 import Data.Function (on)
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe, listToMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Tuple (swap)
@@ -57,3 +58,37 @@ places sem = Set.unions
            , Set.unions . map Map.keysSet . Map.elems $ patterns sem
            , Set.unions . map Map.keysSet . Map.elems $ applications sem
            ]
+
+--------------------------------------------------------------------------------
+-- Ordering of Rules
+--------------------------------------------------------------------------------
+
+data SpecifityOrdering
+    = Incomparable
+    | Less
+    | Equally
+    | More
+    deriving (Show, Eq)
+
+compareTerm :: Term -> Term -> SpecifityOrdering
+compareTerm term1 term2 = case term1 of
+    Function symbol1 args1 -> case term2 of
+        Function symbol2 args2
+            | symbol1 /= symbol2 -> Incomparable
+            | length args1 /= length args2 -> Incomparable
+            | otherwise -> findFirstMeaningfulOrdering (zipWith compareTerm (reverse args1) (reverse args2))
+        Variable _ -> More
+        Promise _ _ -> Incomparable
+        Future _ -> Incomparable
+    Variable _ -> case term2 of
+        Variable _ -> Equally
+        _ -> Less
+    Promise _ _ -> Incomparable
+    Future _ -> Incomparable
+  where
+    findFirstMeaningfulOrdering :: [SpecifityOrdering] -> SpecifityOrdering
+    findFirstMeaningfulOrdering = fromMaybe Equally . listToMaybe . dropWhile (== Equally)
+
+
+compareRule :: Rule -> Rule -> SpecifityOrdering
+compareRule = compareTerm `on` fst
