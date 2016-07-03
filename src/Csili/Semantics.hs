@@ -72,7 +72,7 @@ orderRule :: Rule -> Rule -> Ordering
 orderRule = orderTerm `on` fst
 
 orderTerm :: Term -> Term -> Ordering
-orderTerm term1 term2 = case compareTermBySpecifity term1 term2 of
+orderTerm term1 term2 = case orderTermBySpecifity term1 term2 of
     Incomparable -> compare term1 term2
     Less -> LT
     Equally -> compare term1 term2
