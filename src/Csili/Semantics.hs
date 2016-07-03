@@ -9,9 +9,11 @@ module Csili.Semantics
 ) where
 
 import Data.Function (on)
+import Data.List (sortBy)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Ord (comparing)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Tuple (swap)
@@ -63,6 +65,19 @@ places sem = Set.unions
 -- Ordering of Rules
 --------------------------------------------------------------------------------
 
+orderRules :: [Rule] -> [Rule]
+orderRules = sortBy compareRule
+
+compareRule :: Rule -> Rule -> Ordering
+compareRule = compareTerm `on` fst
+
+compareTerm :: Term -> Term -> Ordering
+compareTerm term1 term2 = case compareTermBySpecifity term1 term2 of
+    Incomparable -> compare term1 term2
+    Less -> LT
+    Equally -> compare term1 term2
+    More -> GT
+
 data SpecifityOrdering
     = Incomparable
     | Less
@@ -70,13 +85,21 @@ data SpecifityOrdering
     | More
     deriving (Show, Eq)
 
-compareTerm :: Term -> Term -> SpecifityOrdering
-compareTerm term1 term2 = case term1 of
+instance Monoid SpecifityOrdering where
+    mempty = Incomparable
+    mappend = \case
+        Incomparable -> const Incomparable
+        Less -> const Less
+        Equally -> id
+        More -> const More
+
+compareTermBySpecifity :: Term -> Term -> SpecifityOrdering
+compareTermBySpecifity term1 term2 = case term1 of
     Function symbol1 args1 -> case term2 of
         Function symbol2 args2
             | symbol1 /= symbol2 -> Incomparable
             | length args1 /= length args2 -> Incomparable
-            | otherwise -> findFirstMeaningfulOrdering (zipWith compareTerm (reverse args1) (reverse args2))
+            | otherwise -> mconcat (zipWith compareTermBySpecifity (reverse args1) (reverse args2))
         Variable _ -> More
         Promise _ _ -> Incomparable
         Future _ -> Incomparable
@@ -85,10 +108,3 @@ compareTerm term1 term2 = case term1 of
         _ -> Less
     Promise _ _ -> Incomparable
     Future _ -> Incomparable
-  where
-    findFirstMeaningfulOrdering :: [SpecifityOrdering] -> SpecifityOrdering
-    findFirstMeaningfulOrdering = fromMaybe Equally . listToMaybe . dropWhile (== Equally)
-
-
-compareRule :: Rule -> Rule -> SpecifityOrdering
-compareRule = compareTerm `on` fst
