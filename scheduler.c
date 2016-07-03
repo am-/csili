@@ -212,7 +212,7 @@ struct term* normalize(struct term* term) {
 
   struct term* previous_term = NULL;
   do {
-    for(int i = 0; i < term->value.function->arity; i++) {
+    for(int i = term->value.function->arity-1; i >= 0; i--) {
       term->value.function->arguments[i] = normalize(term->value.function->arguments[i]);
     }
     previous_term = term;
