@@ -93,13 +93,13 @@ instance Monoid SpecifityOrdering where
         Equally -> id
         More -> const More
 
-compareTermBySpecifity :: Term -> Term -> SpecifityOrdering
-compareTermBySpecifity term1 term2 = case term1 of
+orderTermBySpecifity :: Term -> Term -> SpecifityOrdering
+orderTermBySpecifity term1 term2 = case term1 of
     Function symbol1 args1 -> case term2 of
         Function symbol2 args2
             | symbol1 /= symbol2 -> Incomparable
             | length args1 /= length args2 -> Incomparable
-            | otherwise -> mconcat (zipWith compareTermBySpecifity (reverse args1) (reverse args2))
+            | otherwise -> mconcat (zipWith orderTermBySpecifity (reverse args1) (reverse args2))
         Variable _ -> More
         Promise _ _ -> Incomparable
         Future _ -> Incomparable
