@@ -8,13 +8,6 @@
 
 #define UNDEFINED_STATE UINT32_MAX
 
-#define PLACES 20
-#define TRANSITIONS 10
-
-struct term* places[PLACES];
-
-
-
 ////////////////////////////////////////////////////////////////////////////////
 // Term Rewriting
 ////////////////////////////////////////////////////////////////////////////////
@@ -231,12 +224,12 @@ struct term* normalize(struct term* term) {
 // Petri Net Semantics
 ////////////////////////////////////////////////////////////////////////////////
 
+struct term** places;
+
 uint32_t enabled = 0;
-uint32_t dense[TRANSITIONS];
-uint32_t sparse[TRANSITIONS];
-void (*fire[TRANSITIONS])();
-
-
+uint32_t* dense;
+uint32_t* sparse;
+void (**fire)();
 
 bool is_enabled(int transition) {
   if(dense[transition] >= enabled) {
@@ -276,71 +269,4 @@ uint32_t choose() {
   }
 
   return sparse[0];
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Generated Code
-////////////////////////////////////////////////////////////////////////////////
-
-#define TERM_f 0
-#define TERM_zero 1
-#define TERM_succ 2
-#define TERM_even 3
-#define TERM_odd 4
-
-struct term* rewrite(struct term* term) {
-  if(term->type != FUNCTION) {
-    return NULL;
-  } else if(term->value.function->symbol != TERM_f) {
-    return NULL;
-  } else if(term->value.function->arguments[0]->type != FUNCTION) {
-    return NULL;
-  } else if(term->value.function->arguments[0]->value.function->symbol == TERM_zero) {
-    struct term* new_term = allocate_function(TERM_even, 0, NULL);
-    return new_term;
-  } else if(term->value.function->arguments[0]->value.function->symbol != TERM_succ) {
-    return NULL;
-  } else if(term->value.function->arguments[0]->value.function->arguments[0]->type != FUNCTION) {
-    return NULL;
-  } else if(term->value.function->arguments[0]->value.function->arguments[0]->value.function->symbol == TERM_zero) {
-    struct term* new_term = allocate_function(TERM_odd, 0, NULL);
-    return new_term;
-  }
-  
-  struct term* arguments[] = { term->value.function->arguments[0]->value.function->arguments[0]->value.function->arguments[0] }; 
-  struct term* new_term = allocate_function(TERM_f, 1, arguments);
-  return new_term;
-}
-
-
-int main() {
-  struct term* z = allocate_function(TERM_zero, 0, NULL);
-  
-  struct term* arguments_s[1] = { z };
-  struct term* sz = allocate_function(TERM_succ, 1, arguments_s);
-
-  struct term* arguments_ss[1] = { sz };
-  struct term* ssz = allocate_function(TERM_succ, 1, arguments_ss);
-
-  struct term* arguments_sss[1] = { ssz };
-  struct term* sssz = allocate_function(TERM_succ, 1, arguments_sss);
-
-  struct term* arguments_ssss[1] = { sssz };
-  struct term* ssssz = allocate_function(TERM_succ, 1, arguments_ssss);
-
-  struct term* arguments_sssss[1] = { ssssz };
-  struct term* sssssz = allocate_function(TERM_succ, 1, arguments_sssss);
-
-  struct term* arguments_fsssss[1] = { sssssz };
-  struct term* fsssssz = allocate_function(TERM_f, 1, arguments_fsssss);
-
-  print_term(fsssssz);
-  printf("\n");
-  print_term(normalize(fsssssz));
-  printf("\n");
-  
-  printf("Allocated terms: %d\n", allocated_terms);
-  garbage_collect();
-  printf("Allocated terms: %d\n", allocated_terms);
-  
 }
