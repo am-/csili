@@ -4,6 +4,8 @@
 module Csili.Backend.TermRewriting
 ( generateRules
 , generateMatch
+, generateRewrite
+, collectVariables
 ) where
 
 import Data.List (sortBy)
@@ -36,7 +38,7 @@ generateRules rules = T.intercalate "\n" $ concat
 generateRule :: Rule -> [Text]
 generateRule (lhs, rhs) = concat
     [ [T.concat ["if(", generateMatch "term" lhs, ") {"]]
-    , map (T.append "  ") $ generateRewrite (collectVariables lhs) "" rhs
+    , map (T.append "  ") $ generateRewrite (collectVariables "term" lhs) "" rhs
     , [ "  return new_term;"
       , "}"
       ]
@@ -61,8 +63,8 @@ generateRewrite variablesMap suffix = \case
     Promise _ _ -> undefined
     Future _ -> undefined
 
-collectVariables :: Term -> Map Var Text
-collectVariables = Map.fromList . mapMaybe extractVariable . buildLocationsInPreOrder "term"
+collectVariables :: Text -> Term -> Map Var Text
+collectVariables variable = Map.fromList . mapMaybe extractVariable . buildLocationsInPreOrder variable
   where
     extractVariable :: (Term, Text) -> Maybe (Var, Text)
     extractVariable (term, location) = flip (,) location <$> case term of
