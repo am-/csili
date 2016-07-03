@@ -6,6 +6,7 @@ module Csili.Semantics
 , empty
 , transitions
 , places
+, symbols
 
 , orderRule
 , orderTerm
@@ -60,6 +61,22 @@ places sem = Set.unions
            , Set.unions . map Map.keysSet . Map.elems $ patterns sem
            , Set.unions . map Map.keysSet . Map.elems $ applications sem
            ]
+
+symbols :: Semantics -> Set Symbol
+symbols sem = Set.unions $ concat
+    [ map collect . concatMap (\(lhs, rhs) -> [lhs, rhs]) . rules $ sem
+    , map collect . Map.elems . marking $ sem
+    , map collect . concatMap Map.elems . Map.elems . patterns $ sem
+    , map collect . concatMap Map.elems . Map.elems . applications $ sem
+    ]
+  where
+    collect :: Term -> Set Symbol
+    collect = \case
+        Function symbol args -> Set.insert symbol (Set.unions (map collect args))
+        Variable _ -> Set.empty
+        Promise _ args -> Set.unions (map collect args)
+        Future _ -> Set.empty
+  
 
 --------------------------------------------------------------------------------
 -- Ordering of Rules

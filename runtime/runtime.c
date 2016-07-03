@@ -224,6 +224,8 @@ struct term* normalize(struct term* term) {
 // Petri Net Semantics
 ////////////////////////////////////////////////////////////////////////////////
 
+
+
 struct term** places;
 
 uint32_t enabled = 0;

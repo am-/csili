@@ -12,7 +12,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import System.Environment (getArgs)
   
-import Csili.Backend.AbstractRewritingMachine
+import Csili.Backend.CodeGenerator
 import Csili.Frontend.Parser
 import Csili.Frontend.Unparser
 import Csili.Interpreter
@@ -26,17 +26,4 @@ main = do
       case eitherErrorOrSemantics of
           Left err -> putStrLn err
           Right sem -> do
-              T.putStrLn $ unparseStructure sem
-              T.putStrLn "------------------------------------------------------------"
-              let (ruleSet, term) = fromSemantics sem
-              T.putStrLn $ unparseRules ruleSet
-              T.putStrLn "------------------------------------------------------------"
-              let (nonMinimalRules, instructions) = toInstructions . rules $ sem
-              T.putStrLn "Instructions:"
-              mapM_ print instructions
-              T.putStrLn "The following rules are not minimal:"
-              T.putStrLn $ unparseRules nonMinimalRules
-              T.putStrLn "------------------------------------------------------------"
-              T.putStrLn $ unparseTerm term
-              normalizedTerm <- interpret ruleSet term
-              T.putStrLn $ unparseTerm normalizedTerm
+              T.writeFile "generated-code.c" (generate sem)

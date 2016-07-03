@@ -24,12 +24,12 @@ import Csili.Semantics
 -- Rewriting
 --------------------------------------------------------------------------------
 
-generateRules :: [Rule] -> Text
-generateRules rules = T.intercalate "\n" $ concat
-    [ generateSymbols (concatMap (\(lhs, rhs) -> [lhs, rhs]) rules)
+generateRules :: Semantics -> Text
+generateRules sem = T.intercalate "\n" $ concat
+    [ generateSymbols (symbols sem)
     , [""]
     , ["struct term* rewrite(struct term* term) {"]
-    , concatMap (map (T.append "  ") . generateRule) . sortBy orderRule $ rules
+    , concatMap (map (T.append "  ") . generateRule) . sortBy orderRule . rules $ sem
     , [ ""
       , "  return NULL;"
       , "}"]
@@ -59,7 +59,7 @@ generateRewrite variablesMap suffix = \case
         in  concat (zipWith (generateRewrite variablesMap . extendWithNumber suffix) [0..] args) ++ [arguments, allocation]
     Variable var -> case Map.lookup var variablesMap of
         Nothing -> undefined
-        Just term -> [T.concat ["new_term", suffix, " = ", term, ";"]]
+        Just term -> [T.concat ["struct term* new_term", suffix, " = ", term, ";"]]
     Promise _ _ -> undefined
     Future _ -> undefined
 
@@ -102,19 +102,11 @@ generateMatch variable
 -- Symbol generation
 --------------------------------------------------------------------------------
 
-generateSymbols :: [Term] -> [Text]
-generateSymbols = flip (zipWith generateDefinition) [0..]
-    . Set.toAscList . Set.unions . map collectSymbols
+generateSymbols :: Set Symbol -> [Text]
+generateSymbols = zipWith (flip generateDefinition) [0..] . Set.toAscList
 
 generateDefinition :: Symbol -> Int -> Text
 generateDefinition (Symbol symbol) i = T.concat ["#define TERM_", symbol, " ", T.pack (show i)]
-
-collectSymbols :: Term -> Set Symbol
-collectSymbols = \case
-    Function symbol args -> Set.insert symbol (Set.unions (map collectSymbols args))
-    Variable _ -> Set.empty
-    Promise _ args -> Set.unions (map collectSymbols args)
-    Future _ -> Set.empty
 
 --------------------------------------------------------------------------------
 -- Utility functions
