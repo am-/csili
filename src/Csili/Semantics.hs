@@ -6,6 +6,9 @@ module Csili.Semantics
 , empty
 , transitions
 , places
+
+, orderRule
+, orderTerm
 ) where
 
 import Data.Function (on)
@@ -65,14 +68,11 @@ places sem = Set.unions
 -- Ordering of Rules
 --------------------------------------------------------------------------------
 
-orderRules :: [Rule] -> [Rule]
-orderRules = sortBy compareRule
+orderRule :: Rule -> Rule -> Ordering
+orderRule = orderTerm `on` fst
 
-compareRule :: Rule -> Rule -> Ordering
-compareRule = compareTerm `on` fst
-
-compareTerm :: Term -> Term -> Ordering
-compareTerm term1 term2 = case compareTermBySpecifity term1 term2 of
+orderTerm :: Term -> Term -> Ordering
+orderTerm term1 term2 = case compareTermBySpecifity term1 term2 of
     Incomparable -> compare term1 term2
     Less -> LT
     Equally -> compare term1 term2
