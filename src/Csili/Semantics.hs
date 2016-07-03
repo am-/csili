@@ -12,11 +12,8 @@ module Csili.Semantics
 ) where
 
 import Data.Function (on)
-import Data.List (sortBy)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe, listToMaybe)
-import Data.Ord (comparing)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Tuple (swap)
