@@ -2,16 +2,12 @@
 plus(zero, Y) -> Y
 plus(succ(X), Y) -> plus(X, succ(Y))
 
-alpha(X, zero) -> zero
-alpha(X, succ(zero)) -> succ(zero)
-alpha(X, Y) -> X
-
-ackermann(X, Y, zero) -> plus(X, Y)
-ackermann(X, zero, succ(Z)) -> alpha(X, Z)
-ackermann(X, succ(Y), succ(Z)) -> ackermann(X, ackermann(X, Y, succ(Z)), Z)
+ackermann(zero, Y) -> succ(Y)
+ackermann(succ(X), zero) -> ackermann(X, succ(zero))
+ackermann(succ(X), succ(Y)) -> ackermann(X, ackermann(succ(X), Y))
 
 MARKING {
-  input: succ(succ(zero))
+  input: succ(succ(succ(succ(zero))))
 }
 
 TRANSITION compute {
@@ -19,6 +15,6 @@ TRANSITION compute {
     input: X
   }
   PRODUCE {
-    output: ackermann(X, X, X)
+    output: ackermann(succ(succ(succ(zero))), X)
   }
 }
