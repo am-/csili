@@ -16,8 +16,8 @@ import Csili.Semantics
   
 generateScheduler :: Semantics -> Text
 generateScheduler sem = T.intercalate "\n"
-    [ T.concat ["#define PLACES ", T.pack . show . Set.size . transitions $ sem]
-    , T.concat ["#define TRANSITIONS ", T.pack . show . Set.size . places $ sem]
+    [ T.concat ["#define PLACES ", T.pack . show . Set.size . places $ sem]
+    , T.concat ["#define TRANSITIONS ", T.pack . show . Set.size . transitions $ sem]
     , ""
     , T.intercalate "\n" (generatePlaceDefinitions sem)
     , ""
