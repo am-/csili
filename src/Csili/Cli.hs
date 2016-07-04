@@ -11,6 +11,8 @@ import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import System.Environment (getArgs)
+import System.Directory (copyFile)
+import System.FilePath ((</>))
   
 import Csili.Backend.CodeGenerator
 import Csili.Frontend.Parser
@@ -26,4 +28,5 @@ main = do
       case eitherErrorOrSemantics of
           Left err -> putStrLn err
           Right sem -> do
-              T.writeFile "generated-code.c" (generate sem)
+              copyFile ("runtime" </> "runtime.c") "program.c"
+              T.appendFile "program.c" (generate sem)
