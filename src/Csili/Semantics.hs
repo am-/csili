@@ -29,7 +29,7 @@ data Semantics = Semantics
     { rules :: [Rule]
     , marking :: Map Place Term
     , patterns :: Map Transition (Map Place Term)
-    , applications :: Map Transition (Map Place Term)
+    , applications :: Map Transition (Map Place Computation)
     } deriving (Show, Eq)
 
 empty :: Semantics
@@ -67,9 +67,14 @@ symbols sem = Set.unions $ concat
     [ map collect . concatMap (\(lhs, rhs) -> [lhs, rhs]) . rules $ sem
     , map collect . Map.elems . marking $ sem
     , map collect . concatMap Map.elems . Map.elems . patterns $ sem
-    , map collect . concatMap Map.elems . Map.elems . applications $ sem
+    , map collectFromComputation . concatMap Map.elems . Map.elems . applications $ sem
     ]
   where
+    collectFromComputation :: Computation -> Set Symbol
+    collectFromComputation = \case
+        EffectFree term -> collect term
+        Effectful _ terms -> Set.unions (map collect terms)
+    
     collect :: Term -> Set Symbol
     collect = \case
         Function symbol args -> Set.insert symbol (Set.unions (map collect args))

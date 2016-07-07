@@ -12,7 +12,7 @@ normalize :: Semantics -> Semantics
 normalize sem = sem
     { marking = newMarking
     , patterns = Map.insert initializer newMarking (patterns sem)
-    , applications = Map.insert initializer (marking sem) (applications sem)
+    , applications = Map.insert initializer (Map.map EffectFree . marking $ sem) (applications sem)
     }
   where
     initializer = Transition "__initialize"

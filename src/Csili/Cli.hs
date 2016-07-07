@@ -17,7 +17,6 @@ import System.FilePath ((</>))
 import Csili.Backend.CodeGenerator
 import Csili.Frontend.Parser
 import Csili.Frontend.Unparser
-import Csili.Interpreter
 import Csili.Semantics
 
 main :: IO ()

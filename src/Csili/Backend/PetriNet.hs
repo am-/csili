@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Csili.Backend.PetriNet
@@ -36,7 +37,7 @@ generateTransitions sem
     getMap :: Ord a => Map a (Map b c) -> a -> Map b c
     getMap = flip (Map.findWithDefault Map.empty)
 
-generateTransition :: Map Place Term -> Map Place Term -> [Text]
+generateTransition :: Map Place Term -> Map Place Computation -> [Text]
 generateTransition preset postset = concat
     [ [T.concat ["if(", generatePresetMatch preset, ") {"]]
     , map (T.append "  ") $ generateAllocations preset postset
@@ -60,10 +61,15 @@ generatePlaceMatch place term
 buildPlaceVariable :: Place -> Text
 buildPlaceVariable (Place place) = T.concat ["places[PLACE_", place, "]"]
 
-generateAllocations :: Map Place Term -> Map Place Term -> [Text]
+generateAllocations :: Map Place Term -> Map Place Computation -> [Text]
 generateAllocations preset
-    = concatMap (uncurry (generateRewrite variablesMap) . first (T.cons '_' . unpackPlace))
+    = concatMap (uncurry (generateComputation preset) . first (T.cons '_' . unpackPlace))
     . Map.toList
+
+generateComputation :: Map Place Term -> Text -> Computation -> [Text]
+generateComputation preset variable = \case
+    EffectFree term -> generateRewrite variablesMap variable term
+    Effectful _ _ -> error "TODO!"
   where
     variablesMap = collectVariablesFromPreset preset
 
@@ -72,7 +78,7 @@ collectVariablesFromPreset
     = Map.unions . map (uncurry collectVariables . first buildPlaceVariable)
     . Map.toList
 
-generateNormalizations :: Map Place Term -> [Text]
+generateNormalizations :: Map Place Computation -> [Text]
 generateNormalizations
     = map (generateNormalization . T.append "new_term_" . unpackPlace . fst)
     . Map.toList
@@ -85,7 +91,7 @@ generatePresetConsumption
     = map (flip T.append " = NULL;" . buildPlaceVariable . fst)
     . Map.toList
 
-generatePostsetProduction :: Map Place Term -> [Text]
+generatePostsetProduction :: Map Place Computation -> [Text]
 generatePostsetProduction
     = map (\place -> T.concat [buildPlaceVariable place, " = new_term_", unpackPlace place, ";"])
     . map fst . Map.toAscList

@@ -16,7 +16,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Prelude hiding (takeWhile)
 
-import Csili.Semantics (Semantics(..), Symbol(..), Var(..), Term(..), Rule, Resource(..))
+import Csili.Semantics (Semantics(..), Symbol(..), Var(..), Term(..), Computation(..), Rule, Resource(..))
 import Csili.Semantics (Place(..), Transition(..))
 import qualified Csili.Semantics as Sem
 import Csili.Normalization (normalize)
@@ -50,13 +50,10 @@ rule :: Parser Rule
 rule = (,) <$> term  <*> (string "->" *> term)
 
 term :: Parser Term
-term = fullClean (variable <|> function <|> promise)
+term = fullClean (variable <|> function)
 
 variable :: Parser Term
 variable = Variable . Var <$> upperCaseIdentifier
-
-promise :: Parser Term
-promise = uncurry Promise <$> generalTerm (char '@' *> (Resource <$> lowerCaseIdentifier)) term
 
 function :: Parser Term
 function = uncurry Function <$> generalTerm (Symbol <$> lowerCaseIdentifier) term
@@ -72,24 +69,30 @@ transition :: Parser Transition
 transition = Transition <$> identifier
 
 markingBlock :: Parser (Map Place Term)
-markingBlock = placeTermMap "MARKING"
+markingBlock = placeTermMap "MARKING" term
 
 matchBlock :: Parser (Map Place Term)
-matchBlock = placeTermMap "MATCH"
+matchBlock = placeTermMap "MATCH" term
 
-produceBlock :: Parser (Map Place Term)
-produceBlock = placeTermMap "PRODUCE"
+produceBlock :: Parser (Map Place Computation)
+produceBlock = placeTermMap "PRODUCE" computation
 
-placeTermMap :: Text -> Parser (Map Place Term)
-placeTermMap kind = Map.fromList . snd <$> block (string kind) (many placeTerm)
+computation :: Parser Computation
+computation = choice
+    [ EffectFree <$> term
+    , uncurry Effectful <$> generalTerm (char '@' *> (Resource <$> lowerCaseIdentifier)) term
+    ]
 
-placeTerm :: Parser (Place, Term)
-placeTerm = (,) <$> fullClean place <*> (char ':' *> term)
+placeTermMap :: Text -> Parser a -> Parser (Map Place a)
+placeTermMap kind p = Map.fromList . snd <$> block (string kind) (many (placeTerm p))
 
-transitionBlock :: Parser (Transition, (Map Place Term, Map Place Term))
+placeTerm :: Parser a -> Parser (Place, a)
+placeTerm p = (,) <$> fullClean place <*> (char ':' *> p)
+
+transitionBlock :: Parser (Transition, (Map Place Term, Map Place Computation))
 transitionBlock =  block (string "TRANSITION" *> leftClean transition) innerBlocks
 
-innerBlocks :: Parser (Map Place Term, Map Place Term)
+innerBlocks :: Parser (Map Place Term, Map Place Computation)
 innerBlocks =  foldl' merge (Map.empty, Map.empty) <$> many (choice blocks)
   where
     blocks = [ flip (,) Map.empty <$> matchBlock

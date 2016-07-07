@@ -6,9 +6,8 @@ module Csili.Types
 , isFunction
 , isFunctionSymbol
 , isVariable
-, isPromise
-, isFuture
   
+, Computation(..)
 , Rule
 , Symbol(..)
 , Var(..)
@@ -81,6 +80,10 @@ newtype Var = Var Text
             deriving (Show, Eq, Ord)
 
 
+data Computation
+    = EffectFree Term
+    | Effectful Resource [Term]
+    deriving (Show, Eq, Ord)
 
 newtype Place = Place Text
               deriving (Show, Eq, Ord)

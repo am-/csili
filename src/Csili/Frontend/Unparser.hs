@@ -53,9 +53,19 @@ unparseMatch :: Map Place Term -> Text
 unparseMatch = T.intercalate "\n" . (:) "  MATCH {" . flip (++) ["  }"]
              . map (T.append "    " . uncurry unparsePlaceTerm) . Map.toAscList
 
-unparseProduce :: Map Place Term -> Text
+unparseProduce :: Map Place Computation -> Text
 unparseProduce = T.intercalate "\n" . (:) "  PRODUCE {" . flip (++) ["  }"]
-               . map (T.append "    " . uncurry unparsePlaceTerm) . Map.toAscList
+               . map (T.append "    " . uncurry unparsePlaceComputation) . Map.toAscList
+
+unparsePlaceComputation :: Place -> Computation -> Text
+unparsePlaceComputation (Place name) computation = T.concat [name, ": ", unparseComputation computation]
+
+unparseComputation :: Computation -> Text
+unparseComputation = \case
+    EffectFree term -> unparseTerm term
+    Effectful (Resource resource) terms
+        | null terms -> "@"
+        | otherwise -> T.concat [T.cons '@' resource, "(", T.intercalate ", " (map unparseTerm terms), ")"]
 
 unparsePlaceTerm :: Place -> Term -> Text
 unparsePlaceTerm (Place name) term = T.concat [name, ": ", unparseTerm term]

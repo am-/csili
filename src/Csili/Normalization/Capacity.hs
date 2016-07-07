@@ -15,19 +15,20 @@ import Csili.Semantics
 normalize :: Semantics -> Semantics
 normalize sem = sem
     { marking = Map.union newMarking (marking sem)
-    , patterns = Map.mapWithKey (addConversePlaces (applications sem)) (patterns sem)
-    , applications = Map.mapWithKey (addConversePlaces (patterns sem)) (applications sem)
+    , patterns = Map.mapWithKey (addConversePlaces unit (applications sem)) (patterns sem)
+    , applications = Map.mapWithKey (addConversePlaces (EffectFree unit) (patterns sem)) (applications sem)
     }
   where
+    unit = Function (Symbol "unit") []
     placeSet = places sem
     newPlaces = prefixPlaces placeSet
     newMarking = Map.fromSet (const $ Function (Symbol "unit") []) . prefixPlaces
                . Set.difference placeSet . Map.keysSet . marking $ sem
 
-addConversePlaces :: Map Transition (Map Place Term) -> Transition -> Map Place Term -> Map Place Term
-addConversePlaces converseMap transition oldMap
+addConversePlaces :: a -> Map Transition (Map Place b) -> Transition -> Map Place a -> Map Place a
+addConversePlaces unit converseMap transition oldMap
     = Map.union oldMap      
-    . Map.mapKeys prefixPlace . Map.map (const (Function (Symbol "unit") []))
+    . Map.mapKeys prefixPlace . Map.map (const unit)
     . Map.filterWithKey (const . not . flip Map.member oldMap)
     $ Map.findWithDefault Map.empty transition converseMap
 
