@@ -60,8 +60,6 @@ generateRewrite variablesMap suffix = \case
     Variable var -> case Map.lookup var variablesMap of
         Nothing -> undefined
         Just term -> [T.concat ["struct term* new_term", suffix, " = ", term, ";"]]
-    Promise _ _ -> undefined
-    Future _ -> undefined
 
 collectVariables :: Text -> Term -> Map Var Text
 collectVariables variable = Map.fromList . mapMaybe extractVariable . buildLocationsInPreOrder variable
@@ -70,8 +68,6 @@ collectVariables variable = Map.fromList . mapMaybe extractVariable . buildLocat
     extractVariable (term, location) = flip (,) location <$> case term of
         Function _ _ -> Nothing
         Variable var -> Just var
-        Promise _ _ -> Nothing
-        Future _ -> Nothing
 
 --------------------------------------------------------------------------------
 -- Pattern matching
@@ -94,8 +90,6 @@ generateMatch variable
             , T.concat [variable, "->value.function->symbol == TERM_", symbol]
             ]
         Variable _ -> []
-        Promise _ _ -> undefined
-        Future _ -> undefined
 
 
 --------------------------------------------------------------------------------
@@ -118,5 +112,3 @@ buildLocationsInPreOrder variable term = (term, variable) : case term of
         let enter index = T.concat [variable, "->value.function->arguments[", T.pack (show index), "]"]
         in  concat (zipWith (buildLocationsInPreOrder . enter) [0..] args)
     Variable _ -> []
-    Promise _ _ -> []
-    Future _ -> []

@@ -76,7 +76,3 @@ unparseTerm = \case
         | null terms -> symbol
         | otherwise -> T.concat [symbol, "(", T.intercalate ", " (map unparseTerm terms), ")"]
     Variable (Var var) -> var
-    Promise (Resource resource) terms
-        | null terms -> "@"
-        | otherwise -> T.concat [T.cons '@' resource, "(", T.intercalate ", " (map unparseTerm terms), ")"]
-    Future n -> T.cons '?' (T.pack (show n))

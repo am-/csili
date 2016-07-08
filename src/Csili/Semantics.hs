@@ -47,7 +47,6 @@ collectVariables :: Term -> Set Var
 collectVariables = \case
     Function _ terms -> Set.unions (map collectVariables terms)
     Variable var -> Set.singleton var
-    Promise _ _ -> Set.empty
 
 transitions :: Semantics -> Set Transition
 transitions sem = Set.unions
@@ -79,8 +78,6 @@ symbols sem = Set.unions $ concat
     collect = \case
         Function symbol args -> Set.insert symbol (Set.unions (map collect args))
         Variable _ -> Set.empty
-        Promise _ args -> Set.unions (map collect args)
-        Future _ -> Set.empty
   
 
 --------------------------------------------------------------------------------
@@ -120,10 +117,6 @@ orderTermBySpecifity term1 term2 = case term1 of
             | length args1 /= length args2 -> Incomparable
             | otherwise -> mconcat (zipWith orderTermBySpecifity (reverse args1) (reverse args2))
         Variable _ -> More
-        Promise _ _ -> Incomparable
-        Future _ -> Incomparable
     Variable _ -> case term2 of
         Variable _ -> Equally
         _ -> Less
-    Promise _ _ -> Incomparable
-    Future _ -> Incomparable
