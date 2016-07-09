@@ -1,21 +1,21 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Csili.Types
-( Term(..)
+( Rule
+, Term(..)
 , isConstant
 , isFunction
 , isFunctionSymbol
 , isVariable
   
 , Computation(..)
-, Rule
+, Effect(..)
 , Symbol(..)
 , Var(..)
 , Place(..)
 , unpackPlace
 , Transition(..)
 , unpackTransition
-, Resource(..)
 ) where
 
 import Data.Text (Text)
@@ -58,8 +58,11 @@ newtype Var = Var Text
 
 data Computation
     = EffectFree Term
-    | Effectful Resource [Term]
+    | Effectful Effect [Term]
     deriving (Show, Eq, Ord)
+
+newtype Effect = Effect Text
+                 deriving (Show, Eq, Ord)
 
 newtype Place = Place Text
               deriving (Show, Eq, Ord)
@@ -72,6 +75,3 @@ newtype Transition = Transition Text
 
 unpackTransition :: Transition -> Text
 unpackTransition (Transition transition) = transition
-
-newtype Resource = Resource Text
-                 deriving (Show, Eq, Ord)

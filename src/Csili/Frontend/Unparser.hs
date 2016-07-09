@@ -63,9 +63,9 @@ unparsePlaceComputation (Place name) computation = T.concat [name, ": ", unparse
 unparseComputation :: Computation -> Text
 unparseComputation = \case
     EffectFree term -> unparseTerm term
-    Effectful (Resource resource) terms
-        | null terms -> "@"
-        | otherwise -> T.concat [T.cons '@' resource, "(", T.intercalate ", " (map unparseTerm terms), ")"]
+    Effectful (Effect effect) terms
+        | null terms -> T.cons '#' effect
+        | otherwise -> T.concat [T.cons '#' effect, "(", T.intercalate ", " (map unparseTerm terms), ")"]
 
 unparsePlaceTerm :: Place -> Term -> Text
 unparsePlaceTerm (Place name) term = T.concat [name, ": ", unparseTerm term]

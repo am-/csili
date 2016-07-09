@@ -14,7 +14,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Prelude hiding (takeWhile)
 
-import Csili.Semantics (Semantics, Symbol(..), Var(..), Term(..), Computation(..), Rule, Resource(..))
+import Csili.Semantics (Semantics, Symbol(..), Var(..), Term(..), Computation(..), Rule, Effect(..))
 import Csili.Semantics (Place(..), Transition(..))
 import qualified Csili.Semantics as Sem
 import Csili.Normalization (normalize)
@@ -78,7 +78,7 @@ produceBlock = placeTermMap "PRODUCE" computation
 computation :: Parser Computation
 computation = choice
     [ EffectFree <$> term
-    , uncurry Effectful <$> generalTerm (char '@' *> (Resource <$> lowerCaseIdentifier)) term
+    , uncurry Effectful <$> generalTerm (char '#' *> (Effect <$> lowerCaseIdentifier)) term
     ]
 
 placeTermMap :: Text -> Parser a -> Parser (Map Place a)
