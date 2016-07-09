@@ -28,7 +28,7 @@ TRANSITION ask {
     retry: true
   }
   PRODUCE {
-    waiting: @stdout(putStrLn, guess)
+    waiting: #putStrLn(stdout, guess)
   }
 }
 
@@ -37,7 +37,7 @@ TRANSITION guess {
     waiting: unit
   }
   PRODUCE {
-    guess: @stdin(readInt)
+    guess: #readInt(stdin)
   }
 }
 
@@ -68,7 +68,7 @@ TRANSITION lose {
     retry: false
   }
   PRODUCE {
-    outcome: @stdout(putStrLn, lost)
+    outcome: #putStrLn(stdout, lost)
   }
 }
 
@@ -77,6 +77,6 @@ TRANSITION win {
     guessed: true
   }
   PRODUCE {
-    outcome: @stdout(putStrLn, won)
+    outcome: #putStrLn(stdout, won)
   }
 }
