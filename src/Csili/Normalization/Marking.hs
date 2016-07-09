@@ -5,7 +5,8 @@ module Csili.Normalization.Marking
 ) where
 
 import qualified Data.Map as Map
-  
+
+import Csili.Normalization.Utility
 import Csili.Semantics
 
 normalize :: Semantics -> Semantics
@@ -16,4 +17,4 @@ normalize sem = sem
     }
   where
     initializer = Transition "__initialize"
-    newMarking = Map.singleton (Place "__uninitialized") (Function (Symbol "unit") [])
+    newMarking = Map.singleton (Place "__uninitialized") unit
