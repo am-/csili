@@ -16,6 +16,7 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 executable csili
+  ghc-options:         -Wall
   main-is:             Csili/Cli.hs
   -- other-modules:       
   other-extensions:    LambdaCase
