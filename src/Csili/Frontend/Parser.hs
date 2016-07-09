@@ -7,16 +7,14 @@ module Csili.Frontend.Parser
 import Control.Applicative ((<|>), many)
 import Data.Attoparsec.Text
 import Data.Char (isAlpha, isAlphaNum, isLower, isUpper)
-import Data.Function (on)
 import Data.List (foldl')
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Set (Set)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Prelude hiding (takeWhile)
 
-import Csili.Semantics (Semantics(..), Symbol(..), Var(..), Term(..), Computation(..), Rule, Resource(..))
+import Csili.Semantics (Semantics, Symbol(..), Var(..), Term(..), Computation(..), Rule, Resource(..))
 import Csili.Semantics (Place(..), Transition(..))
 import qualified Csili.Semantics as Sem
 import Csili.Normalization (normalize)
@@ -34,11 +32,11 @@ parseBlockOrRule sem =  fullClean
                     <|> integrateMarking <$> markingBlock
                     <|> uncurry integrateTransition <$> transitionBlock
   where
-    integrateRule rule = sem { rules = Sem.rules sem ++ [rule] }
+    integrateRule newRule = sem { Sem.rules = Sem.rules sem ++ [newRule] }
     integrateMarking marking = sem { Sem.marking = marking }
     integrateTransition name (patterns, applications) = sem
-        { patterns = Map.insert name patterns (Sem.patterns sem)
-        , applications = Map.insert name applications (Sem.applications sem)
+        { Sem.patterns = Map.insert name patterns (Sem.patterns sem)
+        , Sem.applications = Map.insert name applications (Sem.applications sem)
         }
 
 
@@ -99,9 +97,9 @@ innerBlocks =  foldl' merge (Map.empty, Map.empty) <$> many (choice blocks)
              , (,) Map.empty <$> produceBlock
              ]
 
-    merge (match, produce) = (,)
-        <$> Map.union match . fst
-        <*> Map.union produce . snd
+    merge (matching, producing) = (,)
+        <$> Map.union matching . fst
+        <*> Map.union producing . snd
 
 --------------------------------------------------------------------------------
 -- Basic parser

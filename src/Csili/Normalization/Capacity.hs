@@ -4,7 +4,7 @@ module Csili.Normalization.Capacity
 ( normalize
 ) where
 
-import Data.Map as Map
+import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -21,7 +21,6 @@ normalize sem = sem
   where
     unit = Function (Symbol "unit") []
     placeSet = places sem
-    newPlaces = prefixPlaces placeSet
     newMarking = Map.fromSet (const $ Function (Symbol "unit") []) . prefixPlaces
                . Set.difference placeSet . Map.keysSet . marking $ sem
 

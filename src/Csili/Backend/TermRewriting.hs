@@ -47,7 +47,8 @@ generateRule (lhs, rhs) = concat
 generateRewrite :: Map Var Text -> Text -> Term -> [Text]
 generateRewrite variablesMap suffix = \case
     Function (Symbol symbol) args ->
-        let extendWithNumber current = T.append current . T.cons '_' . T.pack . show
+        let extendWithNumber :: Text -> Int -> Text
+            extendWithNumber current = T.append current . T.cons '_' . T.pack . show
             termVariable = T.append "new_term" suffix
             argumentsVariable = T.append "arguments" suffix
             argumentVariables = T.intercalate ", " (zipWith (const $ extendWithNumber termVariable) args [0..])
@@ -83,13 +84,13 @@ generateMatch variable
         | null conditions = "true"
         | otherwise = T.intercalate " && " conditions
 
-    buildCondition :: Text -> Term -> [Text]
-    buildCondition variable = \case
-        Function (Symbol symbol) _ ->
-            [ T.concat [variable, "->type == FUNCTION"]
-            , T.concat [variable, "->value.function->symbol == TERM_", symbol]
-            ]
-        Variable _ -> []
+buildCondition :: Text -> Term -> [Text]
+buildCondition variable = \case
+    Function (Symbol symbol) _ ->
+        [ T.concat [variable, "->type == FUNCTION"]
+        , T.concat [variable, "->value.function->symbol == TERM_", symbol]
+        ]
+    Variable _ -> []
 
 
 --------------------------------------------------------------------------------
@@ -108,7 +109,8 @@ generateDefinition (Symbol symbol) i = T.concat ["#define TERM_", symbol, " ", T
 
 buildLocationsInPreOrder :: Text -> Term -> [(Term, Text)]
 buildLocationsInPreOrder variable term = (term, variable) : case term of
-    Function _ args ->
-        let enter index = T.concat [variable, "->value.function->arguments[", T.pack (show index), "]"]
-        in  concat (zipWith (buildLocationsInPreOrder . enter) [0..] args)
+    Function _ args -> concat (zipWith (buildLocationsInPreOrder . enter) [0..] args)
     Variable _ -> []
+  where
+    enter :: Int -> Text
+    enter index = T.concat [variable, "->value.function->arguments[", T.pack (show index), "]"]

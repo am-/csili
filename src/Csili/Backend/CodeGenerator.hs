@@ -4,10 +4,6 @@ module Csili.Backend.CodeGenerator
 ( generate
 ) where
 
-import Data.Map (Map)
-import qualified Data.Map as Map
-import Data.Set (Set)
-import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 
@@ -25,11 +21,11 @@ generate sem = T.intercalate "\n"
     , ""
     , generateScheduler sem
     , ""
-    , generateMain (marking sem)
+    , generateMain
     ]
 
-generateMain :: Map Place Term -> Text
-generateMain initialMarking = T.intercalate "\n"
+generateMain :: Text
+generateMain = T.intercalate "\n"
     [ "int main() {"
     , "  places = calloc(sizeof *places, PLACES);"
     , "  places[PLACE___uninitialized] = allocate_function(TERM_unit, 0, NULL);"      
