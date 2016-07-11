@@ -28,7 +28,7 @@ import Csili.Types
 data Semantics = Semantics
     { rules :: [Rule]
     , marking :: Map Place Term
-    , patterns :: Map Transition (Map Place Term)
+    , patterns :: Map Transition (Map Place Matcher)
     , applications :: Map Transition (Map Place Computation)
     } deriving (Show, Eq)
 
@@ -42,43 +42,31 @@ empty = Semantics
 
 isValid :: Rule -> Bool
 isValid = uncurry (Set.isSubsetOf `on` collectVariables) . swap
-
-collectVariables :: Term -> Set Var
-collectVariables = \case
-    Function _ terms -> Set.unions (map collectVariables terms)
-    Variable var -> Set.singleton var
+  where
+    collectVariables :: Term -> Set Var
+    collectVariables = collect
 
 transitions :: Semantics -> Set Transition
 transitions sem = Set.unions
-                [ Map.keysSet (patterns sem)
-                , Map.keysSet (applications sem)
-                ]
+    [ Map.keysSet (patterns sem)
+    , Map.keysSet (applications sem)
+    ]
 
 places :: Semantics -> Set Place
 places sem = Set.unions
-           [ Map.keysSet (marking sem)
-           , Set.unions . map Map.keysSet . Map.elems $ patterns sem
-           , Set.unions . map Map.keysSet . Map.elems $ applications sem
-           ]
+    [ Map.keysSet (marking sem)
+    , Set.unions . map Map.keysSet . Map.elems $ patterns sem
+    , Set.unions . map Map.keysSet . Map.elems $ applications sem
+    ]
 
 symbols :: Semantics -> Set Symbol
 symbols sem = Set.unions $ concat
     [ map collect . concatMap (\(lhs, rhs) -> [lhs, rhs]) . rules $ sem
     , map collect . Map.elems . marking $ sem
     , map collect . concatMap Map.elems . Map.elems . patterns $ sem
-    , map collectFromComputation . concatMap Map.elems . Map.elems . applications $ sem
+    , map collect . concatMap Map.elems . Map.elems . applications $ sem
     ]
-  where
-    collectFromComputation :: Computation -> Set Symbol
-    collectFromComputation = \case
-        EffectFree term -> collect term
-        Effectful _ terms -> Set.unions (map collect terms)
-    
-    collect :: Term -> Set Symbol
-    collect = \case
-        Function symbol args -> Set.insert symbol (Set.unions (map collect args))
-        Variable _ -> Set.empty
-  
+
 
 --------------------------------------------------------------------------------
 -- Ordering of Rules

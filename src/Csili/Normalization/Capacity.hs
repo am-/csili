@@ -15,7 +15,7 @@ import Csili.Semantics
 normalize :: Semantics -> Semantics
 normalize sem = sem
     { marking = Map.union newMarking (marking sem)
-    , patterns = Map.mapWithKey (addConversePlaces unit (applications sem)) (patterns sem)
+    , patterns = Map.mapWithKey (addConversePlaces (Pattern unit) (applications sem)) (patterns sem)
     , applications = Map.mapWithKey (addConversePlaces (EffectFree unit) (patterns sem)) (applications sem)
     }
   where
@@ -24,7 +24,7 @@ normalize sem = sem
 
 addConversePlaces :: a -> Map Transition (Map Place b) -> Transition -> Map Place a -> Map Place a
 addConversePlaces noop converseMap transition oldMap
-    = Map.union oldMap      
+    = Map.union oldMap
     . Map.mapKeys prefixPlace . Map.map (const noop)
     . Map.filterWithKey (const . not . flip Map.member oldMap)
     $ Map.findWithDefault Map.empty transition converseMap

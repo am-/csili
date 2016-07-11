@@ -14,7 +14,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Prelude hiding (takeWhile)
 
-import Csili.Semantics (Semantics, Symbol(..), Var(..), Term(..), Computation(..), Rule, Effect(..))
+import Csili.Semantics (Semantics, Symbol(..), Var(..), Term(..), Matcher(..), Computation(..), Rule, Effect(..))
 import Csili.Semantics (Place(..), Transition(..))
 import qualified Csili.Semantics as Sem
 import Csili.Normalization (normalize)
@@ -45,7 +45,7 @@ parseBlockOrRule sem =  fullClean
 --------------------------------------------------------------------------------
 
 rule :: Parser Rule
-rule = (,) <$> term  <*> (string "->" *> term)
+rule = (,) <$> term <*> (string "->" *> term)
 
 term :: Parser Term
 term = fullClean (variable <|> function)
@@ -69,8 +69,16 @@ transition = Transition <$> identifier
 markingBlock :: Parser (Map Place Term)
 markingBlock = placeTermMap "MARKING" term
 
-matchBlock :: Parser (Map Place Term)
-matchBlock = placeTermMap "MATCH" term
+matchBlock :: Parser (Map Place Matcher)
+matchBlock = placeTermMap "MATCH" matcher
+
+matcher :: Parser Matcher
+matcher = choice
+    [ Pattern <$> term
+    , PromisePending . Var <$> (char '~' *> upperCaseIdentifier)
+    , PromiseBroken <$> (char '!' *> term)
+    , PromiseKept <$> (char '?' *> term)
+    ]
 
 produceBlock :: Parser (Map Place Computation)
 produceBlock = placeTermMap "PRODUCE" computation
@@ -87,11 +95,11 @@ placeTermMap kind p = Map.fromList . snd <$> block (string kind) (many (placeTer
 placeTerm :: Parser a -> Parser (Place, a)
 placeTerm p = (,) <$> fullClean place <*> (char ':' *> p)
 
-transitionBlock :: Parser (Transition, (Map Place Term, Map Place Computation))
-transitionBlock =  block (string "TRANSITION" *> leftClean transition) innerBlocks
+transitionBlock :: Parser (Transition, (Map Place Matcher, Map Place Computation))
+transitionBlock = block (string "TRANSITION" *> leftClean transition) innerBlocks
 
-innerBlocks :: Parser (Map Place Term, Map Place Computation)
-innerBlocks =  foldl' merge (Map.empty, Map.empty) <$> many (choice blocks)
+innerBlocks :: Parser (Map Place Matcher, Map Place Computation)
+innerBlocks = foldl' merge (Map.empty, Map.empty) <$> many (choice blocks)
   where
     blocks = [ flip (,) Map.empty <$> matchBlock
              , (,) Map.empty <$> produceBlock

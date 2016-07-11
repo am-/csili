@@ -37,9 +37,9 @@ generateTransitions sem
     getMap :: Ord a => Map a (Map b c) -> a -> Map b c
     getMap = flip (Map.findWithDefault Map.empty)
 
-generateTransition :: Map Place Term -> Map Place Computation -> [Text]
+generateTransition :: Map Place Matcher -> Map Place Computation -> [Text]
 generateTransition preset postset = concat
-    [ [T.concat ["if(", generatePresetMatch preset, ") {"]]
+    [ [T.concat ["if(", generatePresetMatcher preset, ") {"]]
     , map (T.append "  ") $ generateAllocations preset postset
     , map (T.append "  ") $ generateNormalizations postset
     , map (T.append "  ") $ generatePresetConsumption preset
@@ -48,35 +48,45 @@ generateTransition preset postset = concat
     , ["}"]
     ]
 
-generatePresetMatch :: Map Place Term -> Text
-generatePresetMatch
-    = T.intercalate " && " . map (uncurry generatePlaceMatch) . Map.toList
+generatePresetMatcher :: Map Place Matcher -> Text
+generatePresetMatcher
+    = T.intercalate " && " . map (uncurry generatePlaceMatcher) . Map.toList
 
-generatePlaceMatch :: Place -> Term -> Text
-generatePlaceMatch place term
-    = T.concat [variable, " != NULL && ", generateMatch variable term]
+generatePlaceMatcher :: Place -> Matcher -> Text
+generatePlaceMatcher place = \case
+    Pattern term -> T.concat [variable, " != NULL && ", generateMatch variable term]
+    PromisePending _ -> undefined
+    PromiseBroken _ -> undefined
+    PromiseKept _ -> undefined
   where
     variable = buildPlaceVariable place
 
 buildPlaceVariable :: Place -> Text
 buildPlaceVariable (Place place) = T.concat ["places[PLACE_", place, "]"]
 
-generateAllocations :: Map Place Term -> Map Place Computation -> [Text]
+generateAllocations :: Map Place Matcher -> Map Place Computation -> [Text]
 generateAllocations preset
     = concatMap (uncurry (generateComputation preset) . first (T.cons '_' . unpackPlace))
     . Map.toList
 
-generateComputation :: Map Place Term -> Text -> Computation -> [Text]
+generateComputation :: Map Place Matcher -> Text -> Computation -> [Text]
 generateComputation preset variable = \case
     EffectFree term -> generateRewrite variablesMap variable term
     Effectful _ _ -> error "TODO!"
   where
     variablesMap = collectVariablesFromPreset preset
 
-collectVariablesFromPreset :: Map Place Term -> Map Var Text
+collectVariablesFromPreset :: Map Place Matcher -> Map Var Text
 collectVariablesFromPreset
-    = Map.unions . map (uncurry collectVariables . first buildPlaceVariable)
+    = Map.unions . map (uncurry collectVariablesFromMatcher . first buildPlaceVariable)
     . Map.toList
+  where
+    collectVariablesFromMatcher :: Text -> Matcher -> Map Var Text
+    collectVariablesFromMatcher variable = \case
+        Pattern term -> collectVariables variable term
+        PromisePending _ -> undefined
+        PromiseBroken _ -> undefined
+        PromiseKept _ -> undefined
 
 generateNormalizations :: Map Place Computation -> [Text]
 generateNormalizations
@@ -86,7 +96,7 @@ generateNormalizations
 generateNormalization :: Text -> Text
 generateNormalization variable = T.concat [variable, " = normalize(", variable, ");"]
 
-generatePresetConsumption :: Map Place Term -> [Text]
+generatePresetConsumption :: Map Place Matcher -> [Text]
 generatePresetConsumption
     = map (flip T.append " = NULL;" . buildPlaceVariable . fst)
     . Map.toList
