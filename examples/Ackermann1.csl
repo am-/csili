@@ -1,7 +1,4 @@
 
-plus(zero, Y) -> Y
-plus(succ(X), Y) -> plus(X, succ(Y))
-
 ackermann(zero, Y) -> succ(Y)
 ackermann(succ(X), zero) -> ackermann(X, succ(zero))
 ackermann(succ(X), succ(Y)) -> ackermann(X, ackermann(succ(X), Y))
