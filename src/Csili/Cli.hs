@@ -57,15 +57,13 @@ compilation = info
 compilationParser :: Parser CompilationOptions
 compilationParser = CompilationOptions
     <$> switch (hidden <> short 'i' <> long "retain" <> help "Retain intermediate files")
-    <*> (fromMaybe "runtime" <$> optional runtimeOption)
-    <*> (fromMaybe "program" <$> optional outputOption)
+    <*> strOption (runtime <> value "runtime")
+    <*> strOption (output <> value "program")
     <*> some (argument str (metavar "INPUT.."))
   where
-    outputOption = strOption
-        $ short 'o' <> long "output" <> metavar "FILE"
+    output = short 'o' <> long "output" <> metavar "FILE"
         <> help "Write program to FILE"
-    runtimeOption = strOption
-        $ short 'r' <> long "runtime" <> metavar "DIRECTORY"
+    runtime = short 'r' <> long "runtime" <> metavar "DIRECTORY"
         <> help "Location of the runtime"
         <> hidden
 
