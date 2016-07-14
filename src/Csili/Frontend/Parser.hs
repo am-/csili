@@ -48,13 +48,16 @@ rule :: Parser Rule
 rule = (,) <$> term <*> (string "->" *> term)
 
 term :: Parser Term
-term = fullClean (variable <|> function)
+term = fullClean (variable <|> function <|> intTerm)
 
 variable :: Parser Term
 variable = Variable . Var <$> upperCaseIdentifier
 
 function :: Parser Term
 function = uncurry Function <$> generalTerm (Symbol <$> lowerCaseIdentifier) term
+
+intTerm :: Parser Term
+intTerm = IntTerm <$> signed (choice [char '0' *> char 'x' *> hexadecimal, decimal])
 
 --------------------------------------------------------------------------------
 -- Petri net parser

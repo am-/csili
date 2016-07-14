@@ -31,6 +31,7 @@ type Rule = (Term, Term)
 data Term
     = Function Symbol [Term]
     | Variable Var
+    | IntTerm Int
     deriving (Show, Eq, Ord)
 
 isFunction :: Term -> Bool
@@ -38,22 +39,26 @@ isFunction = \case
     Function _ [] -> False
     Function _ (_:_) -> True
     Variable _ -> False
+    IntTerm _ -> False
 
 isConstant :: Term -> Bool
 isConstant = \case
     Function _ [] -> True
     Function _ (_:_) -> False
     Variable _ -> False
+    IntTerm _ -> True
 
 isFunctionSymbol :: Term -> Bool
 isFunctionSymbol = \case
     Function _ _ -> True
     Variable _ -> False
+    IntTerm _ -> False
 
 isVariable :: Term -> Bool
 isVariable = \case
     Function _ _ -> False
     Variable _ -> True
+    IntTerm _ -> False
 
 newtype Symbol = Symbol Text
               deriving (Show, Eq, Ord)
@@ -99,6 +104,7 @@ instance Collectible Term Symbol where
     collect = \case
         Function symbol args -> Set.insert symbol (Set.unions (map collect args))
         Variable _ -> Set.empty
+        IntTerm _ -> Set.empty
 
 instance Collectible Computation Symbol where
     collect = \case
@@ -116,6 +122,7 @@ instance Collectible Term Var where
     collect = \case
         Function _ terms -> Set.unions (map collect terms)
         Variable var -> Set.singleton var
+        IntTerm _ -> Set.empty
 
 instance Collectible Computation Var where
     collect = \case

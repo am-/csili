@@ -105,6 +105,10 @@ orderTermBySpecifity term1 term2 = case term1 of
             | length args1 /= length args2 -> Incomparable
             | otherwise -> mconcat (zipWith orderTermBySpecifity (reverse args1) (reverse args2))
         Variable _ -> More
+        IntTerm _ -> Incomparable
     Variable _ -> case term2 of
         Variable _ -> Equally
         _ -> Less
+    IntTerm x -> case term2 of
+        IntTerm y | x == y -> Equally
+        _ -> Incomparable

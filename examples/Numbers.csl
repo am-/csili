@@ -1,0 +1,18 @@
+
+MARKING {
+  x: 0xae
+  y: 23
+}
+
+TRANSITION multiply {
+  MATCH {
+    x: X
+    y: Y
+  }
+  PRODUCE {
+    z1: multiplyI(-1, Y)
+    z2: plusI(+42, X)
+    z3: subtractI(X, -0xea)
+    z4: div(Y, +0x1)
+  }
+}

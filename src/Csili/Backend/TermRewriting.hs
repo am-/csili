@@ -61,6 +61,7 @@ generateRewrite variablesMap suffix = \case
     Variable var -> case Map.lookup var variablesMap of
         Nothing -> undefined
         Just term -> [T.concat ["struct term* new_term", suffix, " = ", term, ";"]]
+    IntTerm x -> [T.concat ["struct term* new_term", suffix, " = allocate_int(", T.pack $ show x, ");"]]
 
 collectVariables :: Text -> Term -> Map Var Text
 collectVariables variable = Map.fromList . mapMaybe extractVariable . buildLocationsInPreOrder variable
@@ -69,6 +70,7 @@ collectVariables variable = Map.fromList . mapMaybe extractVariable . buildLocat
     extractVariable (term, location) = flip (,) location <$> case term of
         Function _ _ -> Nothing
         Variable var -> Just var
+        IntTerm _ -> Nothing
 
 --------------------------------------------------------------------------------
 -- Pattern matching
@@ -91,6 +93,10 @@ buildCondition variable = \case
         , T.concat [variable, "->value.function->symbol == TERM_", symbol]
         ]
     Variable _ -> []
+    IntTerm x ->
+        [ T.concat [variable, "->type == INT"]
+        , T.concat [variable, "->value.int_value == ", T.pack $ show x]
+        ]
 
 
 --------------------------------------------------------------------------------
@@ -111,6 +117,7 @@ buildLocationsInPreOrder :: Text -> Term -> [(Term, Text)]
 buildLocationsInPreOrder variable term = (term, variable) : case term of
     Function _ args -> concat (zipWith (buildLocationsInPreOrder . enter) [0..] args)
     Variable _ -> []
+    IntTerm _ -> []
   where
     enter :: Int -> Text
     enter index = T.concat [variable, "->value.function->arguments[", T.pack (show index), "]"]
