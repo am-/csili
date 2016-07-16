@@ -68,15 +68,13 @@ unparseMatcher = \case
 unparseComputation :: Computation -> Text
 unparseComputation = \case
     EffectFree term -> unparseTerm term
-    Effectful (Effect effect) terms
-        | null terms -> T.cons '#' effect
-        | otherwise -> T.concat [T.cons '#' effect, "(", T.intercalate ", " (map unparseTerm terms), ")"]
+    Effectful (Effect effect) terms ->
+        unparseTextTerm (T.cons '#' effect) (map unparseTerm terms)
 
 unparseTerm :: Term -> Text
 unparseTerm = \case
-    Function (Symbol symbol) terms
-        | null terms -> symbol
-        | otherwise -> T.concat [symbol, "(", T.intercalate ", " (map unparseTerm terms), ")"]
+    Function (Symbol symbol) terms ->
+        unparseTextTerm symbol (map unparseTerm terms)
     Variable (Var var) -> var
     IntTerm n -> T.pack (show n)
 
@@ -90,3 +88,11 @@ unparsePlaceAndValue :: (a -> Text) -> Place -> a -> Text
 unparsePlaceAndValue convert (Place name) value
     = T.concat [name, ": ", convert value]
 
+--------------------------------------------------------------------------------
+-- Utility functions
+--------------------------------------------------------------------------------
+
+unparseTextTerm :: Text -> [Text] -> Text
+unparseTextTerm symbol terms
+    | null terms = symbol
+    | otherwise = T.concat [symbol, "(", T.intercalate ", " terms, ")"]
