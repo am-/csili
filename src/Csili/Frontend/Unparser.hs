@@ -24,17 +24,19 @@ unparseCsl sem = T.intercalate "\n\n"
     : unparseTransitions sem
 
 unparseStructure :: Semantics -> Text
-unparseStructure = T.intercalate "\n\n" . ((:) <$> unparseRules . rules <*> unparseTransitions)
+unparseStructure = T.intercalate "\n\n"
+    . ((:) <$> unparseRules . rules <*> unparseTransitions)
 
 unparseRules :: [Rule] -> Text
 unparseRules = T.intercalate "\n" . map unparseRule
 
 unparseRule :: Rule -> Text
-unparseRule (lhs, rhs) = T.append (T.append (unparseTerm lhs) " -> ") (unparseTerm rhs)
+unparseRule (lhs, rhs) = T.append
+    (T.append (unparseTerm lhs) " -> ")
+    (unparseTerm rhs)
 
 unparseMarking :: Map Place Term -> Text
-unparseMarking = T.intercalate "\n" . (:) "MARKING {" . (++ ["}"])
-               . map (T.append "  " . uncurry unparsePlaceTerm) . Map.toAscList
+unparseMarking = T.intercalate "\n" . unparseBlock "MARKING" unparseTerm
 
 unparseTransitions :: Semantics -> [Text]
 unparseTransitions = map <$> unparseTransition <*> Set.toAscList . transitions
@@ -49,13 +51,12 @@ unparseTransition sem transition@(Transition name)
     ]
 
 unparseMatch :: Map Place Matcher -> Text
-unparseMatch
-    = T.intercalate "\n" . (:) "  MATCH {" . flip (++) ["  }"]
-    . map (T.append "    " . uncurry unparsePlaceMatcher) . Map.toAscList
+unparseMatch = T.intercalate "\n" . map (T.append "  ")
+    . unparseBlock "MATCH" unparseMatcher
 
-
-unparsePlaceMatcher :: Place -> Matcher -> Text
-unparsePlaceMatcher (Place name) matcher = T.concat [name, ": ", unparseMatcher matcher]
+unparseProduce :: Map Place Computation -> Text
+unparseProduce = T.intercalate "\n" . map (T.append "  ")
+    . unparseBlock "PRODUCE" unparseComputation
 
 unparseMatcher :: Matcher -> Text
 unparseMatcher = \case
@@ -64,22 +65,12 @@ unparseMatcher = \case
     PromiseBroken term -> T.cons '!' (unparseTerm term)
     PromiseKept term -> T.cons '?' (unparseTerm term)
 
-unparseProduce :: Map Place Computation -> Text
-unparseProduce = T.intercalate "\n" . (:) "  PRODUCE {" . flip (++) ["  }"]
-               . map (T.append "    " . uncurry unparsePlaceComputation) . Map.toAscList
-
-unparsePlaceComputation :: Place -> Computation -> Text
-unparsePlaceComputation (Place name) computation = T.concat [name, ": ", unparseComputation computation]
-
 unparseComputation :: Computation -> Text
 unparseComputation = \case
     EffectFree term -> unparseTerm term
     Effectful (Effect effect) terms
         | null terms -> T.cons '#' effect
         | otherwise -> T.concat [T.cons '#' effect, "(", T.intercalate ", " (map unparseTerm terms), ")"]
-
-unparsePlaceTerm :: Place -> Term -> Text
-unparsePlaceTerm (Place name) term = T.concat [name, ": ", unparseTerm term]
 
 unparseTerm :: Term -> Text
 unparseTerm = \case
@@ -88,3 +79,14 @@ unparseTerm = \case
         | otherwise -> T.concat [symbol, "(", T.intercalate ", " (map unparseTerm terms), ")"]
     Variable (Var var) -> var
     IntTerm n -> T.pack (show n)
+
+unparseBlock :: Text -> (a -> Text) -> Map Place a -> [Text]
+unparseBlock caption convert
+    = (:) (T.append caption " {") . flip (++) ["}"]
+    . map (T.append "  " . uncurry (unparsePlaceAndValue convert))
+    . Map.toAscList
+
+unparsePlaceAndValue :: (a -> Text) -> Place -> a -> Text
+unparsePlaceAndValue convert (Place name) value
+    = T.concat [name, ": ", convert value]
+
