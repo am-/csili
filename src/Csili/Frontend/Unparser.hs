@@ -11,7 +11,6 @@ module Csili.Frontend.Unparser
 
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -49,9 +48,21 @@ unparseTransition sem transition@(Transition name)
     , maybe T.empty unparseProduce . Map.lookup transition . applications $ sem
     ]
 
-unparseMatch :: Map Place Term -> Text
-unparseMatch = T.intercalate "\n" . (:) "  MATCH {" . flip (++) ["  }"]
-             . map (T.append "    " . uncurry unparsePlaceTerm) . Map.toAscList
+unparseMatch :: Map Place Matcher -> Text
+unparseMatch
+    = T.intercalate "\n" . (:) "  MATCH {" . flip (++) ["  }"]
+    . map (T.append "    " . uncurry unparsePlaceMatcher) . Map.toAscList
+
+
+unparsePlaceMatcher :: Place -> Matcher -> Text
+unparsePlaceMatcher (Place name) matcher = T.concat [name, ": ", unparseMatcher matcher]
+
+unparseMatcher :: Matcher -> Text
+unparseMatcher = \case
+    Pattern term -> unparseTerm term
+    PromisePending (Var name) -> T.cons '~' name
+    PromiseBroken term -> T.cons '!' (unparseTerm term)
+    PromiseKept term -> T.cons '?' (unparseTerm term)
 
 unparseProduce :: Map Place Computation -> Text
 unparseProduce = T.intercalate "\n" . (:) "  PRODUCE {" . flip (++) ["  }"]
@@ -76,3 +87,4 @@ unparseTerm = \case
         | null terms -> symbol
         | otherwise -> T.concat [symbol, "(", T.intercalate ", " (map unparseTerm terms), ")"]
     Variable (Var var) -> var
+    IntTerm n -> T.pack (show n)

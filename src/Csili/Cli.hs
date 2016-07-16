@@ -18,6 +18,7 @@ import Options.Applicative
   
 import Csili.Backend.CodeGenerator
 import Csili.Frontend.Parser
+import Csili.Frontend.Unparser
 
 main :: IO ()
 main = join . execParser $ info
@@ -44,6 +45,7 @@ csiliInformation = fullDesc
 
 data CompilationOptions = CompilationOptions
     { retainIntermediateFiles :: Bool
+    , normalForm :: Maybe FilePath
     , runtime :: FilePath
     , output :: FilePath
     , files :: [FilePath]
@@ -57,10 +59,14 @@ compilation = info
 compilationParser :: Parser CompilationOptions
 compilationParser = CompilationOptions
     <$> switch (hidden <> short 'i' <> long "retain" <> help "Retain intermediate files")
+    <*> optional (strOption normalized)
     <*> strOption (runtime <> value "runtime")
     <*> strOption (output <> value "program")
     <*> some (argument str (metavar "INPUT.."))
   where
+    normalized = long "normal-form" <> metavar "FILE"
+        <> help "Location of the normalized program"
+        <> hidden
     output = short 'o' <> long "output" <> metavar "FILE"
         <> help "Write program to FILE"
     runtime = short 'r' <> long "runtime" <> metavar "DIRECTORY"
@@ -73,6 +79,7 @@ compile CompilationOptions{..} = do
     case eitherErrorOrSemantics of
         Left err -> putStrLn err
         Right sem -> do
+            maybe (return ()) (flip T.writeFile (unparseCsl sem)) normalForm
             copyFile (runtime </> "runtime.c") (output <.> "c")
             T.appendFile (output <.> "c") (generate sem)
             callProcess "gcc" ["--std=c99", "-o" ++ output, output <.> "c"]
