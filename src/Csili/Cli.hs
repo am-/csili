@@ -45,6 +45,7 @@ csiliInformation = fullDesc
 
 data CompilationOptions = CompilationOptions
     { retainIntermediateFiles :: Bool
+    , backend :: String
     , normalForm :: Maybe FilePath
     , runtime :: FilePath
     , output :: FilePath
@@ -59,11 +60,14 @@ compilation = info
 compilationParser :: Parser CompilationOptions
 compilationParser = CompilationOptions
     <$> switch (hidden <> short 'i' <> long "retain" <> help "Retain intermediate files")
+    <*> strOption (backend <> value "c99")
     <*> optional (strOption normalized)
     <*> strOption (runtime <> value "runtime")
     <*> strOption (output <> value "program")
     <*> some (argument str (metavar "INPUT.."))
   where
+    backend = short 'b' <> long "backend" <> metavar "c99|stm"
+        <> help "Choose backend"
     normalized = long "normal-form" <> metavar "FILE"
         <> help "Location of the normalized program"
         <> hidden
@@ -78,9 +82,12 @@ compile CompilationOptions{..} = do
     eitherErrorOrSemantics <- parseCsl . T.unlines <$> mapM T.readFile files
     case eitherErrorOrSemantics of
         Left err -> putStrLn err
-        Right sem -> do
-            maybe (return ()) (flip T.writeFile (unparseCsl sem)) normalForm
-            copyFile (runtime </> "runtime.c") (output <.> "c")
-            T.appendFile (output <.> "c") (generate sem)
-            callProcess "gcc" ["--std=c99", "-o" ++ output, output <.> "c"]
-            when (not retainIntermediateFiles) (removeFile $ output <.> "c")
+        Right sem -> case backend of
+            "c99" -> do
+                maybe (return ()) (flip T.writeFile (unparseCsl sem)) normalForm
+                copyFile (runtime </> "runtime.c") (output <.> "c")
+                T.appendFile (output <.> "c") (generate sem)
+                callProcess "gcc" ["--std=c99", "-o" ++ output, output <.> "c"]
+                when (not retainIntermediateFiles) (removeFile $ output <.> "c")
+            "stm" -> do
+                putStrLn "Not implemeneted yet."
