@@ -1,0 +1,47 @@
+name: csili
+version: 0.1.0
+synopsis: An Intermediate Language for Concurrency-Aware Schedulers
+description: see README.md
+maintainer: Andre Moelle <andre.moelle@nordic-dev.de>
+license: MIT
+github: am-/csili
+category: Language
+extra-source-files:
+  - CHANGELOG.md
+
+ghc-options: -Wall
+
+dependencies:
+  - base
+  - containers
+  - text
+  - attoparsec
+  - bifunctors
+  - filepath
+  - directory
+  - optparse-applicative
+  - process
+  - stm
+
+library:
+  source-dirs: src
+
+executable:
+  main: Main.hs
+  source-dirs: cli
+  dependencies:
+    - csili
+
+tests:
+  spec:
+    main: Spec.hs
+    source-dirs:
+      - test
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - csili
+      - tasty
+      - tasty-hunit

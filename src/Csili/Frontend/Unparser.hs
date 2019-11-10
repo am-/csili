@@ -2,9 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Csili.Frontend.Unparser
-( unparseCsl  
-, unparseStructure
-, unparseRules
+( unparseProgram
 , unparseMarking
 , unparseTerm
 ) where
@@ -15,61 +13,35 @@ import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 
-import Csili.Semantics
+import Csili.Program
 
-unparseCsl :: Semantics -> Text
-unparseCsl sem = T.intercalate "\n\n"
-    $ unparseRules (rules sem)
-    : unparseMarking (marking sem)
-    : unparseTransitions sem
-
-unparseStructure :: Semantics -> Text
-unparseStructure = T.intercalate "\n\n"
-    . ((:) <$> unparseRules . rules <*> unparseTransitions)
-
-unparseRules :: [Rule] -> Text
-unparseRules = T.intercalate "\n" . map unparseRule
-
-unparseRule :: Rule -> Text
-unparseRule (lhs, rhs) = T.append
-    (T.append (unparseTerm lhs) " -> ")
-    (unparseTerm rhs)
+unparseProgram :: Program -> Text
+unparseProgram program = T.intercalate "\n\n"
+    $ unparseMarking (initialMarking $ program)
+    : unparseTransitions program
 
 unparseMarking :: Map Place Term -> Text
 unparseMarking = T.intercalate "\n" . unparseBlock "MARKING" unparseTerm
 
-unparseTransitions :: Semantics -> [Text]
+unparseTransitions :: Program -> [Text]
 unparseTransitions = map <$> unparseTransition <*> Set.toAscList . transitions
 
-unparseTransition :: Semantics -> Transition -> Text
-unparseTransition sem transition@(Transition name)
+unparseTransition :: Program -> Transition -> Text
+unparseTransition program transition@(Transition name)
     = T.intercalate "\n"
     . (:) (T.append (T.append "TRANSITION " name) " {") . (++ ["}"]) 
     $ filter (not . T.null)
-    [ maybe T.empty unparseMatch . Map.lookup transition . patterns $ sem
-    , maybe T.empty unparseProduce . Map.lookup transition . applications $ sem
+    [ maybe T.empty unparseMatch . Map.lookup transition . patterns $ program
+    , maybe T.empty unparseProduce . Map.lookup transition . productions $ program
     ]
 
-unparseMatch :: Map Place Matcher -> Text
+unparseMatch :: Map Place Term -> Text
 unparseMatch = T.intercalate "\n" . map (T.append "  ")
-    . unparseBlock "MATCH" unparseMatcher
+    . unparseBlock "MATCH" unparseTerm
 
-unparseProduce :: Map Place Computation -> Text
+unparseProduce :: Map Place Term -> Text
 unparseProduce = T.intercalate "\n" . map (T.append "  ")
-    . unparseBlock "PRODUCE" unparseComputation
-
-unparseMatcher :: Matcher -> Text
-unparseMatcher = \case
-    Pattern term -> unparseTerm term
-    PromisePending (Var name) -> T.cons '~' name
-    PromiseBroken term -> T.cons '!' (unparseTerm term)
-    PromiseKept term -> T.cons '?' (unparseTerm term)
-
-unparseComputation :: Computation -> Text
-unparseComputation = \case
-    EffectFree term -> unparseTerm term
-    Effectful (Effect effect) terms ->
-        unparseTextTerm (T.cons '#' effect) (map unparseTerm terms)
+    . unparseBlock "PRODUCE" unparseTerm
 
 unparseTerm :: Term -> Text
 unparseTerm = \case
@@ -77,6 +49,7 @@ unparseTerm = \case
         unparseTextTerm symbol (map unparseTerm terms)
     Variable (Var var) -> var
     IntTerm n -> T.pack (show n)
+    Wildcard -> "_"
 
 unparseBlock :: Text -> (a -> Text) -> Map Place a -> [Text]
 unparseBlock caption convert

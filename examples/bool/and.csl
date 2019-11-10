@@ -1,0 +1,19 @@
+TRANSITION firstTrue {
+  MATCH {
+    input1: true
+    input2: B
+  }
+  PRODUCE {
+    output: B
+  }
+}
+
+TRANSITION firstFalse {
+  MATCH {
+    input1: false
+    input2: B
+  }
+  PRODUCE {
+    output: false
+  }
+}

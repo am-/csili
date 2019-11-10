@@ -1,116 +1,85 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ApplicativeDo #-}
 
 module Csili.Frontend.Parser
-( parseCsl
+( parseProgram
+
+, term
+, markingBlock
+, transitionBlock
 ) where
 
 import Control.Applicative ((<|>), many)
 import Data.Attoparsec.Text
+import Data.Bifunctor (second)
 import Data.Char (isAlpha, isAlphaNum, isLower, isUpper)
-import Data.List (foldl')
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Text (Text)
 import qualified Data.Text as T
 import Prelude hiding (takeWhile)
 
-import Csili.Semantics (Semantics, Symbol(..), Var(..), Term(..), Matcher(..), Computation(..), Rule, Effect(..))
-import Csili.Semantics (Place(..), Transition(..))
-import qualified Csili.Semantics as Sem
-import Csili.Normalization (normalize)
+import Csili.Program (Program, Symbol(..), Var(..), Term(..))
+import Csili.Program (Place(..), Transition(..))
+import qualified Csili.Program as Program
 
-parseCsl :: Text -> Either String Semantics
-parseCsl = fmap normalize .  parseOnly (parseInput Sem.empty)
-
-parseInput :: Semantics -> Parser Semantics
-parseInput sem =  (parseBlockOrRule sem >>= parseInput)
-              <|> sem <$ endOfInput
-
-parseBlockOrRule :: Semantics -> Parser Semantics
-parseBlockOrRule sem =  fullClean
-                     $  integrateRule <$> rule
-                    <|> integrateMarking <$> markingBlock
-                    <|> uncurry integrateTransition <$> transitionBlock
-  where
-    integrateRule newRule = sem { Sem.rules = Sem.rules sem ++ [newRule] }
-    integrateMarking marking = sem { Sem.marking = marking }
-    integrateTransition name (patterns, applications) = sem
-        { Sem.patterns = Map.insert name patterns (Sem.patterns sem)
-        , Sem.applications = Map.insert name applications (Sem.applications sem)
-        }
-
+parseProgram :: Text -> Either String Program
+parseProgram = parseOnly $ do
+    clean
+    marking <- option Map.empty (rightClean markingBlock)
+    transitions <- many (rightClean transitionBlock)
+    endOfInput
+    return $ Program.empty
+      { Program.initialMarking = marking
+      , Program.patterns = Map.fromList . map (second fst) $ transitions
+      , Program.productions = Map.fromList . map (second snd) $ transitions
+      }
 
 --------------------------------------------------------------------------------
--- Term Rewriting
+-- Terms
 --------------------------------------------------------------------------------
-
-rule :: Parser Rule
-rule = (,) <$> term <*> (string "->" *> term)
 
 term :: Parser Term
-term = fullClean (variable <|> function <|> intTerm)
+term = fullClean (variable <|> function <|> intTerm <|> wildcard)
 
 variable :: Parser Term
 variable = Variable . Var <$> upperCaseIdentifier
 
 function :: Parser Term
-function = uncurry Function <$> generalTerm (Symbol <$> lowerCaseIdentifier) term
+function = uncurry Function <$> functionTerm (Symbol <$> lowerCaseIdentifier) term
 
 intTerm :: Parser Term
 intTerm = IntTerm <$> signed (choice [char '0' *> char 'x' *> hexadecimal, decimal])
 
+wildcard :: Parser Term
+wildcard = const Wildcard <$> (char '_' *> takeWhile isAlphaNum)
+
 --------------------------------------------------------------------------------
--- Petri net parser
+-- Net Structure
 --------------------------------------------------------------------------------
 
-place :: Parser Place
-place = Place <$> identifier
+placeIdentifier :: Parser Place
+placeIdentifier = Place <$> identifier
 
-transition :: Parser Transition
-transition = Transition <$> identifier
+transitionIdentifier :: Parser Transition
+transitionIdentifier = Transition <$> identifier
 
 markingBlock :: Parser (Map Place Term)
-markingBlock = placeTermMap "MARKING" term
+markingBlock = unnamedBlock "MARKING" (placeMap term)
 
-matchBlock :: Parser (Map Place Matcher)
-matchBlock = placeTermMap "MATCH" matcher
-
-matcher :: Parser Matcher
-matcher = choice
-    [ Pattern <$> term
-    , PromisePending . Var <$> (char '~' *> upperCaseIdentifier)
-    , PromiseBroken <$> (char '!' *> term)
-    , PromiseKept <$> (char '?' *> term)
-    ]
-
-produceBlock :: Parser (Map Place Computation)
-produceBlock = placeTermMap "PRODUCE" computation
-
-computation :: Parser Computation
-computation = choice
-    [ EffectFree <$> term
-    , uncurry Effectful <$> generalTerm (char '#' *> (Effect <$> lowerCaseIdentifier)) term
-    ]
-
-placeTermMap :: Text -> Parser a -> Parser (Map Place a)
-placeTermMap kind p = Map.fromList . snd <$> block (string kind) (many (placeTerm p))
-
-placeTerm :: Parser a -> Parser (Place, a)
-placeTerm p = (,) <$> fullClean place <*> (char ':' *> p)
-
-transitionBlock :: Parser (Transition, (Map Place Matcher, Map Place Computation))
-transitionBlock = block (string "TRANSITION" *> leftClean transition) innerBlocks
-
-innerBlocks :: Parser (Map Place Matcher, Map Place Computation)
-innerBlocks = foldl' merge (Map.empty, Map.empty) <$> many (choice blocks)
+transitionBlock :: Parser (Transition, (Map Place Term, Map Place Term))
+transitionBlock = namedBlock "TRANSITION" transitionIdentifier blocks
   where
-    blocks = [ flip (,) Map.empty <$> matchBlock
-             , (,) Map.empty <$> produceBlock
-             ]
+    blocks :: Parser (Map Place Term, Map Place Term)
+    blocks = (,)
+        <$> option Map.empty (unnamedBlock "MATCH" (placeMap term))
+        <*> option Map.empty (unnamedBlock "PRODUCE" (placeMap term))
 
-    merge (matching, producing) = (,)
-        <$> Map.union matching . fst
-        <*> Map.union producing . snd
+placeMap :: Parser a -> Parser (Map Place a)
+placeMap p = Map.fromList <$> many (placeAssignment p)
+
+placeAssignment :: Parser a -> Parser (Place, a)
+placeAssignment p = (,) <$> fullClean placeIdentifier <*> (char ':' *> p)
 
 --------------------------------------------------------------------------------
 -- Basic parser
@@ -125,14 +94,19 @@ upperCaseIdentifier = T.cons <$> satisfy isUpper <*> takeWhile isAlphaNum
 lowerCaseIdentifier :: Parser Text
 lowerCaseIdentifier = T.cons <$> satisfy isLower <*> takeWhile isAlphaNum
 
-block :: Parser a -> Parser b -> Parser (a, b)
-block header content
-    =   (,)
-    <$> leftClean header
-    <*> (leftClean (char '{') *> content <* leftClean (char '}'))
+namedBlock :: Text -> Parser a -> Parser b -> Parser (a, b)
+namedBlock keyword ident content = (,)
+    <$> (string keyword *> leftClean ident)
+    <*> enclose '{' '}' content
 
-generalTerm :: Parser a -> Parser b -> Parser (a, [b])
-generalTerm symbol argument = (,)
+unnamedBlock :: Text -> Parser a -> Parser a
+unnamedBlock keyword content = leftClean (string keyword) *> enclose '{' '}' content
+
+enclose :: Char -> Char -> Parser a -> Parser a
+enclose opener closer parser = leftClean (char opener) *> parser <* leftClean (char closer)
+
+functionTerm :: Parser a -> Parser b -> Parser (a, [b])
+functionTerm symbol argument = (,)
     <$> rightClean symbol
     <*> option [] (char '(' *> sepBy1 argument (char ',')  <* char ')')
 
@@ -144,10 +118,10 @@ clean :: Parser ()
 clean = skipMany space
 
 leftClean :: Parser a -> Parser a
-leftClean = (*>) clean
+leftClean p = clean *> p
 
 rightClean :: Parser a -> Parser a
-rightClean = flip (<*) clean
+rightClean p = p <* clean
 
 fullClean :: Parser a -> Parser a
 fullClean = leftClean . rightClean

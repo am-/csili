@@ -1,0 +1,17 @@
+TRANSITION notTrue {
+  MATCH {
+    input: true
+  }
+  PRODUCE {
+    output: false
+  }
+}
+
+TRANSITION notFalse {
+  MATCH {
+    input: false
+  }
+  PRODUCE {
+    output: true
+  }
+}
