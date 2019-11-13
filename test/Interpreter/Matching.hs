@@ -13,6 +13,8 @@ tests = testGroup "Matching"
     , testCase "Wildcard Pattern (inside)" wildcardInside
     , testCase "Variable (top level)" topLevelVariable
     , testCase "Variable (inside)" variableInside
+    , testCase "Same Int" sameInt
+    , testCase "Same Function" sameFunction
     , testCase "Different Term Types" differentTermTypes
     , testCase "Different Integer Values" differentIntegerValues
     , testCase "Different Top Level Symbol" differentTopLevelSymbol
@@ -43,6 +45,12 @@ variableInside = Just (Map.fromList [(var, int)]) @=? match (Function (Symbol "x
     var = Var "V"
     int = IntTerm 1
     function = Function (Symbol "x") [int]
+
+sameFunction :: Assertion
+sameFunction = Just Map.empty @=? match (Function (Symbol "nil") []) (Function (Symbol "nil") [])
+
+sameInt :: Assertion
+sameInt = Just Map.empty @=? match (IntTerm 1) (IntTerm 1)
 
 differentTermTypes :: Assertion
 differentTermTypes = do

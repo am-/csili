@@ -13,6 +13,7 @@ tests = testGroup "Enablement"
     , testCase "Disabled (marked postset)" markedPostset
     , testCase "Disabled (no match)" noMatch
     , testCase "Enabled (no preset)" noPreset
+    , testCase "Enabled (no postset)" noPostset
     , testCase "Enabled (match all)" matchAll
     ]
 
@@ -38,6 +39,14 @@ noPreset = True @=? isEnabled program (Transition "t")
   where
     program = empty
         { productions = Map.fromList [(Transition "t", Map.fromList [(Place "p", Function (Symbol "nil") [])])]
+        }
+
+noPostset :: Assertion
+noPostset = True @=? isEnabled program (Transition "t")
+  where
+    program = empty
+        { initialMarking = Map.fromList [(Place "p", Function (Symbol "nil") [])]
+        , patterns = Map.fromList [(Transition "t", Map.fromList [(Place "p", Variable (Var "V"))])]
         }
 
 noMatch :: Assertion
