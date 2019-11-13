@@ -1,11 +1,13 @@
 import Test.Tasty
 
-import qualified Frontend.Parser as Parser
+import qualified Frontend.Parser
+import qualified Interpreter
 
 main :: IO ()
 main = defaultMain tests
 
 tests :: TestTree
 tests = testGroup "Tests"
-    [ Parser.tests
+    [ Frontend.Parser.tests
+    , Interpreter.tests
     ]

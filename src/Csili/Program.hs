@@ -1,5 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
-
 module Csili.Program
 ( module Csili.Syntax
 

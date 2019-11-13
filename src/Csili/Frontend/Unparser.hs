@@ -1,6 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE LambdaCase #-}
-
 module Csili.Frontend.Unparser
 ( unparseProgram
 , unparseMarking
