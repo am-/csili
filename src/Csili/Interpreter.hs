@@ -9,12 +9,19 @@ module Csili.Interpreter
 
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (isJust)
+import qualified Data.Set as Set
+import Data.Maybe (isJust, mapMaybe)
 
 import Csili.Program
 
 run :: Program -> Marking -> Marking
-run = undefined
+run program additionalMarking = go (Map.union (initialMarking program) additionalMarking)
+  where
+    go marking = case mapMaybe (fire (program { initialMarking = marking })) (findEnabledTransitions marking) of
+        [] -> marking
+        newMarking:_ -> go newMarking
+    findEnabledTransitions marking = filter (isEnabled (program { initialMarking = marking })) transitions
+    transitions = Set.toList $ Set.union (Map.keysSet (patterns program)) (Map.keysSet (productions program))
 
 isEnabled :: Program -> Transition -> Bool
 isEnabled program = isJust . bindVariables program
@@ -22,14 +29,14 @@ isEnabled program = isJust . bindVariables program
 bindVariables :: Program -> Transition -> Maybe (Map Var Term)
 bindVariables program transition
     | not isPresetMarked = Nothing
-    | not isPostsetUnmarked = Nothing
+    | isPostsetBlocked = Nothing
     | otherwise = matchPatterns
   where
     marking = initialMarking program
     preset = Map.findWithDefault Map.empty transition (patterns program)
     postset = Map.findWithDefault Map.empty transition (productions program)
     isPresetMarked = Map.null $ Map.difference preset marking
-    isPostsetUnmarked = Map.null $ Map.intersection marking postset
+    isPostsetBlocked = not . Map.null . Map.intersection marking $ Map.difference postset preset
     matchPatterns = fmap Map.unions . sequence . Map.elems $ Map.intersectionWith match preset marking
 
 match :: Term -> Term -> Maybe (Map Var Term)
@@ -61,7 +68,7 @@ fire program transition = bindVariables program transition >>= newMarking
     preset = Map.findWithDefault Map.empty transition (patterns program)
     postset = Map.findWithDefault Map.empty transition (productions program)
     newMarking :: Map Var Term -> Maybe Marking
-    newMarking binding = case Just postset of
+    newMarking binding = case sequence $ Map.map (substitute binding) postset of
         Just tokens -> Just . flip (Map.unionWith (const id)) tokens . Map.difference marking $ preset
         Nothing -> Nothing
 

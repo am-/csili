@@ -60,7 +60,7 @@ trueAndTrue = testProgram "true /\\ true" andProgram marking expectation
     marking = Map.fromList [(Place "input1", true), (Place "input2", true)]
 
     expectation :: Marking
-    expectation = Map.fromList [(Place "output", false)]
+    expectation = Map.fromList [(Place "output", true)]
 
 
 orTests :: TestTree
@@ -117,8 +117,11 @@ notTests = testGroup "not"
     , notTrue
     ]
 
+notProgram :: FilePath
+notProgram = "examples/bool/not.csl"
+
 notFalse :: TestTree
-notFalse = testProgram "!false" orProgram marking expectation
+notFalse = testProgram "!false" notProgram marking expectation
   where
     marking :: Marking
     marking = Map.fromList [(Place "input", false)]
@@ -127,7 +130,7 @@ notFalse = testProgram "!false" orProgram marking expectation
     expectation = Map.fromList [(Place "output", true)]
 
 notTrue :: TestTree
-notTrue = testProgram "!true" orProgram marking expectation
+notTrue = testProgram "!true" notProgram marking expectation
   where
     marking :: Marking
     marking = Map.fromList [(Place "input", true)]
