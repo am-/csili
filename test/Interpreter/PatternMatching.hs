@@ -1,4 +1,4 @@
-module Interpreter.Matching where
+module Interpreter.PatternMatching where
 
 import qualified Data.Map.Strict as Map
 import Test.Tasty
@@ -8,7 +8,13 @@ import Csili.Program
 import Csili.Interpreter
 
 tests :: TestTree
-tests = testGroup "Matching"
+tests = testGroup "Pattern Matching"
+    [ matching
+    , substitution
+    ]
+
+matching :: TestTree
+matching = testGroup "Matching"
     [ testCase "Wildcard Pattern (top level)" topLevelWildcard
     , testCase "Wildcard Pattern (inside)" wildcardInside
     , testCase "Variable (top level)" topLevelVariable
@@ -68,3 +74,43 @@ differentArity = Nothing @=? match (Function (Symbol "x") [IntTerm 1, IntTerm 1]
 
 differentSubterm :: Assertion
 differentSubterm = Nothing @=? match (Function (Symbol "x") [IntTerm 1]) (Function (Symbol "x") [IntTerm 2])
+
+substitution :: TestTree
+substitution = testGroup "Substitution"
+    [ testCase "Identity without Variables" identityWithoutVariables
+    , testCase "Complete Substitution" completeSubstitution
+    , testCase "Missing Variable" missingVariable
+    , testCase "Inside Substitution" insideSubstitution
+    , testCase "Missing Variable Inside Substitution" missingVariableInsideSubstitution
+    ]
+
+identityWithoutVariables :: Assertion
+identityWithoutVariables = mapM_ (\term -> Just term @=? substitute Map.empty term) terms
+  where
+    terms = [IntTerm 42, Function (Symbol "x") []]
+
+completeSubstitution :: Assertion
+completeSubstitution = Just term @=? substitute binding (Variable var)
+  where
+    term = IntTerm 42
+    var = Var "V"
+    binding = Map.fromList [(var, term)]
+
+missingVariable :: Assertion
+missingVariable = Nothing  @=? substitute binding (Variable var)
+  where
+    binding = Map.empty
+    var = Var "V"
+
+insideSubstitution :: Assertion
+insideSubstitution = Just (Function (Symbol "cons") [term, Function (Symbol "nil") []]) @=? substitute binding (Function (Symbol "cons") [Variable var, Function (Symbol "nil") []])
+  where
+    term = IntTerm 42
+    var = Var "V"
+    binding = Map.fromList [(var, term)]
+
+missingVariableInsideSubstitution :: Assertion
+missingVariableInsideSubstitution = Nothing @=? substitute binding (Function (Symbol "cons") [IntTerm 42, Variable var])
+  where
+    var = Var "V"
+    binding = Map.empty
