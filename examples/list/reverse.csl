@@ -1,0 +1,25 @@
+MARKING {
+  accumulator: nil
+}
+
+TRANSITION addElement {
+  MATCH {
+    input: cons(Head, Tail)
+    accumulator: ReversedList
+  }
+  PRODUCE {
+    input: Tail
+    accumulator: cons(Head, ReversedList)
+  }
+}
+
+TRANSITION return {
+  MATCH {
+    input: nil
+    accumulator: ReversedList
+  }
+  PRODUCE {
+    accumulator: nil
+    output: ReversedList
+  }
+}

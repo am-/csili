@@ -9,7 +9,7 @@ import Csili.Interpreter
 import Interpreter.Program.Test
 
 tests :: TestTree
-tests = testGroup "bool"
+tests = testGroup "Bool"
     [ andTests
     , orTests
     , notTests
