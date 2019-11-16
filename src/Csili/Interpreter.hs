@@ -1,6 +1,7 @@
 module Csili.Interpreter
 ( Marking
 , run
+, evaluate
 , isEnabled
 , fire
 , match
@@ -15,16 +16,25 @@ import Data.Maybe (isJust, mapMaybe)
 import Csili.Program
 
 run :: Program -> Marking -> Marking
-run program additionalMarking = go (Map.union (initialMarking program) additionalMarking)
+run program = calculateFinalMarking . evaluate . replaceMarking program . calculateInitialMarking
   where
-    go marking = case mapMaybe (fire (program { initialMarking = marking })) (findEnabledTransitions marking) of
-        [] -> marking
-        newMarking:_ -> go newMarking
-    findEnabledTransitions marking = filter (isEnabled (program { initialMarking = marking })) transitions
-    transitions = Set.toList $ Set.union (Map.keysSet (patterns program)) (Map.keysSet (productions program))
+    calculateInitialMarking = Map.union (initialMarking program) . flip Map.restrictKeys (input $ interface program)
+    calculateFinalMarking = flip Map.restrictKeys (output $ interface program)
+
+evaluate :: Program -> Marking
+evaluate program = go (initialMarking program)
+  where
+   go marking = case mapMaybe (fire $ replaceMarking program marking) (findEnabledTransitions marking) of
+       [] -> marking
+       newMarking:_ -> go newMarking
+   findEnabledTransitions marking = filter (isEnabled $ replaceMarking program marking) allTransitions
+   allTransitions = Set.toList $ transitions program
 
 isEnabled :: Program -> Transition -> Bool
 isEnabled program = isJust . bindVariables program
+
+fire :: Program -> Transition -> Maybe Marking
+fire program transition = bindVariables program transition >>= applyBinding program transition
 
 bindVariables :: Program -> Transition -> Maybe (Map Var Term)
 bindVariables program transition
@@ -39,37 +49,37 @@ bindVariables program transition
     isPostsetBlocked = not . Map.null . Map.intersection marking $ Map.difference postset preset
     matchPatterns = fmap Map.unions . sequence . Map.elems $ Map.intersectionWith match preset marking
 
-match :: Term -> Term -> Maybe (Map Var Term)
-match pattern term = case pattern of
-    Wildcard -> Just Map.empty
-    Variable var -> Just $ Map.singleton var term
-    IntTerm patternInt -> case term of
-        IntTerm termInt
-            | patternInt == termInt -> Just Map.empty
-            | otherwise -> Nothing
-        Function _ _ -> Nothing
-    Function patternSymbol patternTerms -> case term of
-        IntTerm _ -> Nothing
-        Function termSymbol termTerms
-            | patternSymbol /= termSymbol -> Nothing
-            | length patternTerms /= length termTerms -> Nothing
-            | otherwise -> fmap Map.unions . sequence $ zipWith match patternTerms termTerms
-
-substitute :: Map Var Term -> Term -> Maybe Term
-substitute binding = \case
-    Variable var -> Map.lookup var binding
-    Function symbol terms -> Function symbol <$> mapM (substitute binding) terms
-    term@(IntTerm _) -> Just term
-
-fire :: Program -> Transition -> Maybe Marking
-fire program transition = bindVariables program transition >>= newMarking
+applyBinding :: Program -> Transition -> Map Var Term -> Maybe Marking
+applyBinding program transition binding = calculateMarking <$> mapM (substitute binding) postset
   where
     marking = initialMarking program
     preset = Map.findWithDefault Map.empty transition (patterns program)
     postset = Map.findWithDefault Map.empty transition (productions program)
-    newMarking :: Map Var Term -> Maybe Marking
-    newMarking binding = case sequence $ Map.map (substitute binding) postset of
-        Just tokens -> Just . flip (Map.unionWith (const id)) tokens . Map.difference marking $ preset
-        Nothing -> Nothing
+    calculateMarking = Map.unionWith (const id) (Map.difference marking preset)
 
-type Marking = Map Place Term
+match :: Term -> Term -> Maybe (Map Var Term)
+match pattern term = case pattern of
+    Function patternSymbol patternTerms -> case term of
+        Function termSymbol termTerms
+            | patternSymbol /= termSymbol -> Nothing
+            | length patternTerms /= length termTerms -> Nothing
+            | otherwise -> fmap Map.unions . sequence $ zipWith match patternTerms termTerms
+        IntTerm _ -> Nothing
+        Variable _ -> Nothing
+        Wildcard -> Nothing
+    IntTerm patternInt -> case term of
+        Function _ _ -> Nothing
+        IntTerm termInt
+            | patternInt == termInt -> Just Map.empty
+            | otherwise -> Nothing
+        Variable _ -> Nothing
+        Wildcard -> Nothing
+    Variable var -> Just $ Map.singleton var term
+    Wildcard -> Just Map.empty
+
+substitute :: Map Var Term -> Term -> Maybe Term
+substitute binding = \case
+    Function symbol terms -> Function symbol <$> mapM (substitute binding) terms
+    term@(IntTerm _) -> Just term
+    Variable var -> Map.lookup var binding
+    Wildcard -> Nothing

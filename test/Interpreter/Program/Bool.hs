@@ -4,7 +4,6 @@ import qualified Data.Map.Strict as Map
 import Test.Tasty
 
 import Csili.Program
-import Csili.Interpreter
 
 import Interpreter.Program.Test
 

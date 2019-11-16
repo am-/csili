@@ -6,6 +6,12 @@ module Csili.Program
 , transitions
 , places
 , symbols
+
+, Marking
+, replaceMarking
+
+, Interface(..)
+, emptyInterface
 ) where
 
 import Data.Map (Map)
@@ -16,14 +22,16 @@ import qualified Data.Set as Set
 import Csili.Syntax
 
 data Program = Program
-    { initialMarking :: Map Place Term
+    { interface :: Interface
+    , initialMarking :: Marking
     , patterns :: Map Transition (Map Place Term)
     , productions :: Map Transition (Map Place Term)
     } deriving (Show, Eq)
 
 empty :: Program
 empty = Program
-      { initialMarking = Map.empty
+      { interface = emptyInterface
+      , initialMarking = Map.empty
       , patterns = Map.empty
       , productions = Map.empty
       }
@@ -47,3 +55,19 @@ symbols program = Set.unions $ concat
     , map collect . concatMap Map.elems . Map.elems . patterns $ program
     , map collect . concatMap Map.elems . Map.elems . productions $ program
     ]
+
+type Marking = Map Place Term
+
+replaceMarking :: Program -> Marking -> Program
+replaceMarking program marking = program { initialMarking = marking }
+
+data Interface = Interface
+    { input :: Set Place
+    , output :: Set Place
+    } deriving (Show, Eq)
+
+emptyInterface :: Interface
+emptyInterface = Interface
+    { input = Set.empty
+    , output = Set.empty
+    }

@@ -4,6 +4,7 @@ import Data.Text ()
 import qualified Data.Text.IO as T (readFile)
 import Data.Attoparsec.Text (parseOnly)
 import qualified Data.Map.Strict as Map (empty, fromList)
+import qualified Data.Set as Set (empty, fromList)
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -13,6 +14,7 @@ import Csili.Program
 tests :: TestTree
 tests = testGroup "Parser"
     [ terms
+    , interfaceBlocks
     , markingBlocks
     , transitionBlocks
     , programs
@@ -73,6 +75,40 @@ wildcardWithName = Right Wildcard @=? parseOnly term "_foobar"
 
 wildcardWithinFunction :: Assertion
 wildcardWithinFunction = Right (Function (Symbol "cons") [Wildcard, Wildcard]) @=? parseOnly term "cons(_Head, _)"
+
+interfaceBlocks :: TestTree
+interfaceBlocks = testGroup "Interface"
+    [ testCase "Empty" emptyInputAndOutputInterface
+    , testCase "Empty Input" emptyInputInterface
+    , testCase "Empty Output" emptyOutputInterface
+    , testCase "1-to-1" oneToOneInterface
+    , testCase "2-to-2" twoToTwoInterface
+    ]
+
+emptyInputAndOutputInterface :: Assertion
+emptyInputAndOutputInterface = Right expectation @=? parseOnly interfaceBlock "INTERFACE {}"
+  where
+    expectation = Interface { input = Set.empty, output = Set.empty }
+
+emptyInputInterface :: Assertion
+emptyInputInterface = Right expectation @=? parseOnly interfaceBlock "INTERFACE { OUTPUT { output } }"
+  where
+    expectation = Interface { input = Set.empty, output = Set.fromList [Place "output"]}
+
+emptyOutputInterface :: Assertion
+emptyOutputInterface = Right expectation @=? parseOnly interfaceBlock "INTERFACE { INPUT { input } }"
+  where
+    expectation = Interface { input = Set.fromList [Place "input"], output = Set.empty }
+
+oneToOneInterface :: Assertion
+oneToOneInterface = Right expectation @=? parseOnly interfaceBlock "INTERFACE { INPUT { input } OUTPUT { output } }"
+  where
+    expectation = Interface { input = Set.fromList [Place "input"], output = Set.fromList [Place "output"] }
+
+twoToTwoInterface :: Assertion
+twoToTwoInterface = Right expectation @=? parseOnly interfaceBlock "INTERFACE { INPUT { input1 input2 } OUTPUT { output1 output2 } }"
+  where
+    expectation = Interface { input = Set.fromList [Place "input1", Place "input2"], output = Set.fromList [Place "output1", Place "output2"] }
 
 markingBlocks :: TestTree
 markingBlocks = testGroup "Marking"
@@ -135,10 +171,15 @@ andProgram :: Assertion
 andProgram = parseProgram <$> T.readFile "examples/bool/and.csl" >>= \case
     Left reason -> assertFailure reason
     Right program -> do
+        expectedInterface @=? interface program
         expectedMarking @=? initialMarking program
         expectedPatterns @=? patterns program
         expectedApplications @=? productions program
   where
+    expectedInterface = Interface
+        { input = Set.fromList [Place "input1", Place "input2"]
+        , output = Set.fromList [Place "output"]
+        }
     expectedMarking = Map.empty
     expectedPatterns = Map.fromList
         [ (Transition "firstTrue", Map.fromList [(Place "input1", Function (Symbol "true") []), (Place "input2", Variable (Var "B"))])

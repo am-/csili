@@ -1,3 +1,13 @@
+INTERFACE {
+  INPUT {
+    input1
+    input2
+  }
+  OUTPUT {
+    output
+  }
+}
+
 TRANSITION firstTrue {
   MATCH {
     input1: true

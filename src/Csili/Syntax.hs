@@ -6,9 +6,7 @@ module Csili.Syntax
 , Symbol(..)
 , Var(..)
 , Place(..)
-, unpackPlace
 , Transition(..)
-, unpackTransition
 
 , Collectible(..)
 ) where
@@ -19,8 +17,8 @@ import qualified Data.Set as Set
 
 data Term
     = Function Symbol [Term]
-    | Variable Var
     | IntTerm Int
+    | Variable Var
     | Wildcard
     deriving (Show, Eq, Ord)
 
@@ -33,14 +31,8 @@ newtype Var = Var Text
 newtype Place = Place Text
     deriving (Show, Eq, Ord)
 
-unpackPlace :: Place -> Text
-unpackPlace (Place place) = place
-
 newtype Transition = Transition Text
     deriving (Show, Eq, Ord)
-
-unpackTransition :: Transition -> Text 
-unpackTransition (Transition transition) = transition
 
 --------------------------------------------------------------------------------
 -- Functions for building collections

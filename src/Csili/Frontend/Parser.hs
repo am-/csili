@@ -4,6 +4,7 @@ module Csili.Frontend.Parser
 ( parseProgram
 
 , term
+, interfaceBlock
 , markingBlock
 , transitionBlock
 ) where
@@ -14,22 +15,26 @@ import Data.Bifunctor (second)
 import Data.Char (isAlpha, isAlphaNum, isLower, isUpper)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 import Prelude hiding (takeWhile)
 
 import Csili.Program (Program, Symbol(..), Var(..), Term(..))
-import Csili.Program (Place(..), Transition(..))
+import Csili.Program (Place(..), Transition(..), Interface(..))
 import qualified Csili.Program as Program
 
 parseProgram :: Text -> Either String Program
 parseProgram = parseOnly $ do
     clean
+    interface <- option Program.emptyInterface (rightClean interfaceBlock)
     marking <- option Map.empty (rightClean markingBlock)
     transitions <- many (rightClean transitionBlock)
     endOfInput
     return $ Program.empty
-      { Program.initialMarking = marking
+      { Program.interface = interface
+      , Program.initialMarking = marking
       , Program.patterns = Map.fromList . map (second fst) $ transitions
       , Program.productions = Map.fromList . map (second snd) $ transitions
       }
@@ -63,6 +68,21 @@ placeIdentifier = Place <$> identifier
 transitionIdentifier :: Parser Transition
 transitionIdentifier = Transition <$> identifier
 
+interfaceBlock :: Parser Interface
+interfaceBlock = unnamedBlock "INTERFACE" $ do
+    inputPlaces <- option Set.empty inputBlock
+    outputPlaces <- option Set.empty outputBlock
+    return $ Interface
+        { input = inputPlaces
+        , output = outputPlaces
+        }
+
+inputBlock :: Parser (Set Place)
+inputBlock = unnamedBlock "INPUT" placeSet
+
+outputBlock :: Parser (Set Place)
+outputBlock = unnamedBlock "OUTPUT" placeSet
+
 markingBlock :: Parser (Map Place Term)
 markingBlock = unnamedBlock "MARKING" (placeMap term)
 
@@ -73,6 +93,9 @@ transitionBlock = namedBlock "TRANSITION" transitionIdentifier blocks
     blocks = (,)
         <$> option Map.empty (unnamedBlock "MATCH" (placeMap term))
         <*> option Map.empty (unnamedBlock "PRODUCE" (placeMap term))
+
+placeSet :: Parser (Set Place)
+placeSet = Set.fromList <$> many (fullClean placeIdentifier)
 
 placeMap :: Parser a -> Parser (Map Place a)
 placeMap p = Map.fromList <$> many (placeAssignment p)
