@@ -36,7 +36,7 @@ evaluateIgnoresInterface :: TestTree
 evaluateIgnoresInterface = testCase "Evaluate Ignores Interface" $ expectation @=? evaluate program
   where
     program = empty
-        { initialMarking = Map.fromList [(Place "input", IntTerm 1), (Place "store", IntTerm 0)]
+        { initialMarking = Map.fromList [(Place "input", IntToken 1), (Place "store", IntToken 0)]
         , interface = Interface
             { input = Set.fromList [Place "input"]
             , output = Set.fromList [Place "output"]
@@ -44,10 +44,10 @@ evaluateIgnoresInterface = testCase "Evaluate Ignores Interface" $ expectation @
         , patterns = Map.fromList [(Transition "store", storePattern)]
         , productions = Map.fromList [(Transition "store", storeProduction)]
         }
-    storePattern = Map.fromList [(Place "input", Variable (Var "New")), (Place "store", Variable (Var "Old"))]
-    storeProduction = Map.fromList [(Place "output", Variable (Var "Old")), (Place "store", Variable (Var "New"))]
-    expectation = Map.fromList [(Place "output", IntTerm 0), (Place "store", IntTerm 1)]
+    storePattern = Map.fromList [(Place "input", VariablePattern (Var "New")), (Place "store", VariablePattern (Var "Old"))]
+    storeProduction = Map.fromList [(Place "output", Substitution (Var "Old")), (Place "store", Substitution (Var "New"))]
+    expectation = Map.fromList [(Place "output", IntToken 0), (Place "store", IntToken 1)]
 
-nil :: Term
-nil = Function (Symbol "nil") []
+nil :: Token
+nil = FunctionToken (Symbol "nil") []
 

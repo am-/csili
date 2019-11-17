@@ -25,8 +25,8 @@ unmarkedPreset = do
     Nothing @=? fire program (Transition "t")
   where
     program = empty
-        { patterns = Map.fromList [(Transition "t", Map.fromList [(Place "p1", Wildcard)])]
-        , productions = Map.fromList [(Transition "t", Map.fromList [(Place "p2", Function (Symbol "nil") [])])]
+        { patterns = Map.fromList [(Transition "t", Map.fromList [(Place "p1", WildcardPattern)])]
+        , productions = Map.fromList [(Transition "t", Map.fromList [(Place "p2", FunctionProduction (Symbol "nil") [])])]
         }
 
 markedPostset :: Assertion
@@ -35,9 +35,9 @@ markedPostset = do
     Nothing @=? fire program (Transition "t")
   where
     program = empty
-        { initialMarking = Map.fromList [(Place "p1", Function (Symbol "nil") []), (Place "p2", Function (Symbol "nil") [])]
-        , patterns = Map.fromList [(Transition "t", Map.fromList [(Place "p1", Wildcard)])]
-        , productions = Map.fromList [(Transition "t", Map.fromList [(Place "p2", Function (Symbol "nil") [])])]
+        { initialMarking = Map.fromList [(Place "p1", FunctionToken (Symbol "nil") []), (Place "p2", FunctionToken (Symbol "nil") [])]
+        , patterns = Map.fromList [(Transition "t", Map.fromList [(Place "p1", WildcardPattern)])]
+        , productions = Map.fromList [(Transition "t", Map.fromList [(Place "p2", FunctionProduction (Symbol "nil") [])])]
         }
 
 noPreset :: Assertion
@@ -46,11 +46,10 @@ noPreset = do
     Just marking @=? fire program (Transition "t")
   where
     place = Place "p"
-    function = Function (Symbol "nil") []
     program = empty
-        { productions = Map.fromList [(Transition "t", Map.fromList [(place, function)])]
+        { productions = Map.fromList [(Transition "t", Map.fromList [(place, FunctionProduction (Symbol "nil") [])])]
         }
-    marking = Map.fromList [(place, function)]
+    marking = Map.fromList [(place, FunctionToken (Symbol "nil") [])]
 
 noPostset :: Assertion
 noPostset = do
@@ -58,8 +57,8 @@ noPostset = do
     Just marking @=? fire program (Transition "t")
   where
     program = empty
-        { initialMarking = Map.fromList [(Place "p", Function (Symbol "nil") [])]
-        , patterns = Map.fromList [(Transition "t", Map.fromList [(Place "p", Variable (Var "V"))])]
+        { initialMarking = Map.fromList [(Place "p", FunctionToken (Symbol "nil") [])]
+        , patterns = Map.fromList [(Transition "t", Map.fromList [(Place "p", VariablePattern (Var "V"))])]
         }
     marking = Map.empty
 
@@ -69,9 +68,9 @@ noMatch = do
     Nothing @=? fire program (Transition "t")
   where
     program = empty
-        { initialMarking = Map.fromList [(Place "p1", Function (Symbol "nil") [])]
-        , patterns = Map.fromList [(Transition "t", Map.fromList [(Place "p1", Function (Symbol "cons") [Wildcard, Wildcard])])]
-        , productions = Map.fromList [(Transition "t", Map.fromList [(Place "p2", Function (Symbol "nil") [])])]
+        { initialMarking = Map.fromList [(Place "p1", FunctionToken (Symbol "nil") [])]
+        , patterns = Map.fromList [(Transition "t", Map.fromList [(Place "p1", FunctionPattern (Symbol "cons") [WildcardPattern, WildcardPattern])])]
+        , productions = Map.fromList [(Transition "t", Map.fromList [(Place "p2", FunctionProduction (Symbol "nil") [])])]
         }
 
 sling :: Assertion
@@ -79,14 +78,13 @@ sling = do
     True @=? isEnabled program (Transition "t")
     Just marking @=? fire program (Transition "t")
   where
-    nil = Function (Symbol "nil") []
     var = Var "V"
     program = empty
-        { initialMarking = Map.fromList [(Place "p", nil)]
-        , patterns = Map.fromList [(Transition "t", Map.fromList [(Place "p", Variable var)])]
-        , productions = Map.fromList [(Transition "t", Map.fromList [(Place "p", Function (Symbol "cons") [IntTerm 1, Variable var])])]
+        { initialMarking = Map.fromList [(Place "p", FunctionToken (Symbol "nil") [])]
+        , patterns = Map.fromList [(Transition "t", Map.fromList [(Place "p", VariablePattern var)])]
+        , productions = Map.fromList [(Transition "t", Map.fromList [(Place "p", FunctionProduction (Symbol "cons") [IntProduction 1, Substitution var])])]
         }
-    marking = Map.fromList [(Place "p", Function (Symbol "cons") [IntTerm 1, nil])]
+    marking = Map.fromList [(Place "p", FunctionToken (Symbol "cons") [IntToken 1, FunctionToken (Symbol "nil") []])]
 
 matchAll :: Assertion
 matchAll = do
@@ -94,12 +92,12 @@ matchAll = do
     Just marking @=? fire program (Transition "t")
   where
     p2 = Place "p2"
-    nil = Function (Symbol "nil") []
+    nil = FunctionToken (Symbol "nil") []
     var = Var "V"
     program = empty
         { initialMarking = Map.fromList [(Place "p1", nil)]
-        , patterns = Map.fromList [(Transition "t", Map.fromList [(Place "p1", Variable var)])]
-        , productions = Map.fromList [(Transition "t", Map.fromList [(p2, Variable var)])]
+        , patterns = Map.fromList [(Transition "t", Map.fromList [(Place "p1", VariablePattern var)])]
+        , productions = Map.fromList [(Transition "t", Map.fromList [(p2, Substitution var)])]
         }
     marking = Map.fromList [(p2, nil)]
 
@@ -111,7 +109,7 @@ missingVariable = do
   where
     p2 = Place "p2"
     program = empty
-        { initialMarking = Map.fromList [(Place "p1", Function (Symbol "nil") [])]
-        , patterns = Map.fromList [(Transition "t", Map.fromList [(Place "p1", Wildcard)])]
-        , productions = Map.fromList [(Transition "t", Map.fromList [(p2, Variable (Var "V"))])]
+        { initialMarking = Map.fromList [(Place "p1", FunctionToken (Symbol "nil") [])]
+        , patterns = Map.fromList [(Transition "t", Map.fromList [(Place "p1", WildcardPattern)])]
+        , productions = Map.fromList [(Transition "t", Map.fromList [(p2, Substitution (Var "V"))])]
         }

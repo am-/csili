@@ -1,15 +1,11 @@
 module Frontend.Parser where
 
 import Data.Text ()
-import qualified Data.Text.IO as T (readFile)
 import Data.Attoparsec.Text (parseOnly)
-import qualified Data.Map.Strict as Map (empty, fromList)
-import qualified Data.Set as Set (empty, fromList)
 import Test.Tasty
 import Test.Tasty.HUnit
 
 import Csili.Frontend.Parser
-import Csili.Program
 
 tests :: TestTree
 tests = testGroup "Parser"
@@ -17,7 +13,6 @@ tests = testGroup "Parser"
     , interfaceBlocks
     , markingBlocks
     , transitionBlocks
-    , programs
     ]
 
 terms :: TestTree
@@ -50,22 +45,22 @@ terms = testGroup "Terms"
     ]
 
 singleLetterVariable :: Assertion
-singleLetterVariable = Right (Variable (Var "A")) @=? parseOnly term "A"
+singleLetterVariable = Right (Variable "A") @=? parseOnly term "A"
 
 multiLetterVariable :: Assertion
-multiLetterVariable = Right (Variable (Var "Foobar")) @=? parseOnly term "Foobar"
+multiLetterVariable = Right (Variable "Foobar") @=? parseOnly term "Foobar"
 
 constantWithoutParentheses :: Assertion
-constantWithoutParentheses = Right (Function (Symbol "foobar") []) @=? parseOnly term "foobar"
+constantWithoutParentheses = Right (Function "foobar" []) @=? parseOnly term "foobar"
 
 constantWithParentheses :: Assertion
-constantWithParentheses = Right (Function (Symbol "foobar") []) @=? parseOnly term "foobar()"
+constantWithParentheses = Right (Function "foobar" []) @=? parseOnly term "foobar()"
 
 function :: Assertion
-function = Right (Function (Symbol "cons") [headVar, tailVar]) @=? parseOnly term "cons(Head, Tail)"
+function = Right (Function "cons" [headVar, tailVar]) @=? parseOnly term "cons(Head, Tail)"
   where
-    headVar = Variable (Var "Head")
-    tailVar = Variable (Var "Tail")
+    headVar = Variable "Head"
+    tailVar = Variable "Tail"
 
 wildcardWithoutName :: Assertion
 wildcardWithoutName = Right Wildcard @=? parseOnly term "_"
@@ -74,7 +69,7 @@ wildcardWithName :: Assertion
 wildcardWithName = Right Wildcard @=? parseOnly term "_foobar"
 
 wildcardWithinFunction :: Assertion
-wildcardWithinFunction = Right (Function (Symbol "cons") [Wildcard, Wildcard]) @=? parseOnly term "cons(_Head, _)"
+wildcardWithinFunction = Right (Function "cons" [Wildcard, Wildcard]) @=? parseOnly term "cons(_Head, _)"
 
 interfaceBlocks :: TestTree
 interfaceBlocks = testGroup "Interface"
@@ -88,43 +83,43 @@ interfaceBlocks = testGroup "Interface"
 emptyInputAndOutputInterface :: Assertion
 emptyInputAndOutputInterface = Right expectation @=? parseOnly interfaceBlock "INTERFACE {}"
   where
-    expectation = Interface { input = Set.empty, output = Set.empty }
+    expectation = ([], [])
 
 emptyInputInterface :: Assertion
 emptyInputInterface = Right expectation @=? parseOnly interfaceBlock "INTERFACE { OUTPUT { output } }"
   where
-    expectation = Interface { input = Set.empty, output = Set.fromList [Place "output"]}
+    expectation = ([], ["output"])
 
 emptyOutputInterface :: Assertion
 emptyOutputInterface = Right expectation @=? parseOnly interfaceBlock "INTERFACE { INPUT { input } }"
   where
-    expectation = Interface { input = Set.fromList [Place "input"], output = Set.empty }
+    expectation = (["input"], [])
 
 oneToOneInterface :: Assertion
 oneToOneInterface = Right expectation @=? parseOnly interfaceBlock "INTERFACE { INPUT { input } OUTPUT { output } }"
   where
-    expectation = Interface { input = Set.fromList [Place "input"], output = Set.fromList [Place "output"] }
+    expectation = (["input"], ["output"])
 
 twoToTwoInterface :: Assertion
 twoToTwoInterface = Right expectation @=? parseOnly interfaceBlock "INTERFACE { INPUT { input1 input2 } OUTPUT { output1 output2 } }"
   where
-    expectation = Interface { input = Set.fromList [Place "input1", Place "input2"], output = Set.fromList [Place "output1", Place "output2"] }
+    expectation = (["input1", "input2"], ["output1", "output2"])
 
 markingBlocks :: TestTree
 markingBlocks = testGroup "Marking"
     [ testCase "Empty" emptyMarking
-    , testCase "Non-Empty" marking
+    , testCase "Non-Empty" nonEmptyMarking
     ]
 
 emptyMarking :: Assertion
 emptyMarking = Right expectation @=? parseOnly markingBlock "MARKING {}"
   where
-    expectation = Map.fromList []
+    expectation = []
 
-marking :: Assertion
-marking = Right expectation @=? parseOnly markingBlock "MARKING { input1: true input2: false }"
+nonEmptyMarking :: Assertion
+nonEmptyMarking = Right expectation @=? parseOnly markingBlock "MARKING { input1: true input2: false }"
   where
-    expectation = Map.fromList [(Place "input1", Function (Symbol "true") []), (Place "input2", Function (Symbol "false") [])]
+    expectation = [("input1", Function "true" []), ("input2", Function "false" [])]
 
 transitionBlocks :: TestTree
 transitionBlocks = testGroup "Transition"
@@ -137,55 +132,27 @@ transitionBlocks = testGroup "Transition"
 isolatedTransition :: Assertion
 isolatedTransition = Right expectation @=? parseOnly transitionBlock "TRANSITION doNothing {}"
   where
-    expectation = (Transition "doNothing", (match, produce))
-    match = Map.fromList []
-    produce = Map.fromList []
+    expectation = ("doNothing", (match, produce))
+    match = []
+    produce = []
 
 infiniteProducer :: Assertion
 infiniteProducer = Right expectation @=? parseOnly transitionBlock "TRANSITION InfiniteProducer { PRODUCE { output: true } }"
   where
-    expectation = (Transition "InfiniteProducer", (match, produce))
-    match = Map.fromList []
-    produce = Map.fromList [(Place "output", Function (Symbol "true") [])]
+    expectation = ("InfiniteProducer", (match, produce))
+    match = []
+    produce = [("output", Function "true" [])]
 
 unconditionalEater :: Assertion
 unconditionalEater = Right expectation @=? parseOnly transitionBlock "TRANSITION UnconditionalEater { MATCH { input: _ } }"
   where
-    expectation = (Transition "UnconditionalEater", (match, produce))
-    match = Map.fromList [(Place "input", Wildcard)]
-    produce = Map.fromList []
+    expectation = ("UnconditionalEater", (match, produce))
+    match = [("input", Wildcard)]
+    produce = []
 
 commonTransition :: Assertion
 commonTransition = Right expectation @=? parseOnly transitionBlock "TRANSITION firstTrue { MATCH { input1: true input2: B } PRODUCE { output: B } }"
   where
-    expectation = (Transition "firstTrue", (match, produce))
-    match = Map.fromList [(Place "input1", Function (Symbol "true") []), (Place "input2", Variable (Var "B"))]
-    produce = Map.fromList [(Place "output", Variable (Var "B"))]
-
-programs :: TestTree
-programs = testGroup "Program"
-    [ testCase "and.csl" andProgram
-    ]
-
-andProgram :: Assertion
-andProgram = parseProgram <$> T.readFile "examples/bool/and.csl" >>= \case
-    Left reason -> assertFailure reason
-    Right program -> do
-        expectedInterface @=? interface program
-        expectedMarking @=? initialMarking program
-        expectedPatterns @=? patterns program
-        expectedApplications @=? productions program
-  where
-    expectedInterface = Interface
-        { input = Set.fromList [Place "input1", Place "input2"]
-        , output = Set.fromList [Place "output"]
-        }
-    expectedMarking = Map.empty
-    expectedPatterns = Map.fromList
-        [ (Transition "firstTrue", Map.fromList [(Place "input1", Function (Symbol "true") []), (Place "input2", Variable (Var "B"))])
-        , (Transition "firstFalse", Map.fromList [(Place "input1", Function (Symbol "false") []), (Place "input2", Variable (Var "B"))])
-        ]
-    expectedApplications = Map.fromList
-        [ (Transition "firstTrue", Map.fromList [(Place "output", Variable (Var "B"))])
-        , (Transition "firstFalse", Map.fromList [(Place "output", Function (Symbol "false") [])])
-        ]
+    expectation = ("firstTrue", (match, produce))
+    match = [("input1", Function "true" []), ("input2", Variable "B")]
+    produce = [("output", Variable "B")]

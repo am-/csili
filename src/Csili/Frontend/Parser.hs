@@ -1,8 +1,9 @@
 {-# LANGUAGE ApplicativeDo #-}
 
 module Csili.Frontend.Parser
-( parseProgram
-
+( SyntaxTree(..)
+, Term(..)
+, file
 , term
 , interfaceBlock
 , markingBlock
@@ -11,33 +12,37 @@ module Csili.Frontend.Parser
 
 import Control.Applicative ((<|>), many)
 import Data.Attoparsec.Text
-import Data.Bifunctor (second)
 import Data.Char (isAlpha, isAlphaNum, isLower, isUpper)
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
-import Data.Set (Set)
-import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 import Prelude hiding (takeWhile)
 
-import Csili.Program (Program, Symbol(..), Var(..), Term(..))
-import Csili.Program (Place(..), Transition(..), Interface(..))
-import qualified Csili.Program as Program
+data SyntaxTree = SyntaxTree
+    { interface :: ([Text], [Text])
+    , marking :: [(Text, Term)]
+    , transitions :: [(Text, ([Pattern], [Production]))]
+    }
 
-parseProgram :: Text -> Either String Program
-parseProgram = parseOnly $ do
-    clean
-    interface <- option Program.emptyInterface (rightClean interfaceBlock)
-    marking <- option Map.empty (rightClean markingBlock)
-    transitions <- many (rightClean transitionBlock)
-    endOfInput
-    return $ Program.empty
-      { Program.interface = interface
-      , Program.initialMarking = marking
-      , Program.patterns = Map.fromList . map (second fst) $ transitions
-      , Program.productions = Map.fromList . map (second snd) $ transitions
-      }
+type Symbol = Text
+type Var = Text
+type Pattern = (Text, Term)
+type Production = (Text, Term)
+
+data Term
+    = Function Symbol [Term]
+    | IntTerm Int
+    | Variable Var
+    | Wildcard
+    deriving (Show, Eq, Ord)
+
+file :: Parser SyntaxTree
+file = clean *> syntaxTree <* endOfInput
+
+syntaxTree :: Parser SyntaxTree
+syntaxTree = SyntaxTree
+    <$> option ([], []) (rightClean interfaceBlock)
+    <*> option [] (rightClean markingBlock)
+    <*> many (rightClean transitionBlock)
 
 --------------------------------------------------------------------------------
 -- Terms
@@ -47,10 +52,10 @@ term :: Parser Term
 term = fullClean (variable <|> function <|> intTerm <|> wildcard)
 
 variable :: Parser Term
-variable = Variable . Var <$> upperCaseIdentifier
+variable = Variable <$> upperCaseIdentifier
 
 function :: Parser Term
-function = uncurry Function <$> functionTerm (Symbol <$> lowerCaseIdentifier) term
+function = uncurry Function <$> functionTerm (lowerCaseIdentifier) term
 
 intTerm :: Parser Term
 intTerm = IntTerm <$> signed (choice [char '0' *> char 'x' *> hexadecimal, decimal])
@@ -62,46 +67,36 @@ wildcard = const Wildcard <$> (char '_' *> takeWhile isAlphaNum)
 -- Net Structure
 --------------------------------------------------------------------------------
 
-placeIdentifier :: Parser Place
-placeIdentifier = Place <$> identifier
+interfaceBlock :: Parser ([Text], [Text])
+interfaceBlock = unnamedBlock "INTERFACE" $ (,)
+    <$> option [] inputBlock
+    <*> option [] outputBlock
 
-transitionIdentifier :: Parser Transition
-transitionIdentifier = Transition <$> identifier
-
-interfaceBlock :: Parser Interface
-interfaceBlock = unnamedBlock "INTERFACE" $ do
-    inputPlaces <- option Set.empty inputBlock
-    outputPlaces <- option Set.empty outputBlock
-    return $ Interface
-        { input = inputPlaces
-        , output = outputPlaces
-        }
-
-inputBlock :: Parser (Set Place)
+inputBlock :: Parser [Text]
 inputBlock = unnamedBlock "INPUT" placeSet
 
-outputBlock :: Parser (Set Place)
+outputBlock :: Parser [Text]
 outputBlock = unnamedBlock "OUTPUT" placeSet
 
-markingBlock :: Parser (Map Place Term)
+markingBlock :: Parser [(Text, Term)]
 markingBlock = unnamedBlock "MARKING" (placeMap term)
 
-transitionBlock :: Parser (Transition, (Map Place Term, Map Place Term))
-transitionBlock = namedBlock "TRANSITION" transitionIdentifier blocks
+transitionBlock :: Parser (Text, ([(Text, Term)], [(Text, Term)]))
+transitionBlock = namedBlock "TRANSITION" identifier blocks
   where
-    blocks :: Parser (Map Place Term, Map Place Term)
+    blocks :: Parser ([(Text, Term)], [(Text, Term)])
     blocks = (,)
-        <$> option Map.empty (unnamedBlock "MATCH" (placeMap term))
-        <*> option Map.empty (unnamedBlock "PRODUCE" (placeMap term))
+        <$> option [] (unnamedBlock "MATCH" (placeMap term))
+        <*> option [] (unnamedBlock "PRODUCE" (placeMap term))
 
-placeSet :: Parser (Set Place)
-placeSet = Set.fromList <$> many (fullClean placeIdentifier)
+placeSet :: Parser [Text]
+placeSet = many (fullClean identifier)
 
-placeMap :: Parser a -> Parser (Map Place a)
-placeMap p = Map.fromList <$> many (placeAssignment p)
+placeMap :: Parser a -> Parser [(Text, a)]
+placeMap p = many (placeAssignment p)
 
-placeAssignment :: Parser a -> Parser (Place, a)
-placeAssignment p = (,) <$> fullClean placeIdentifier <*> (char ':' *> p)
+placeAssignment :: Parser a -> Parser (Text, a)
+placeAssignment p = (,) <$> fullClean identifier <*> (char ':' *> p)
 
 --------------------------------------------------------------------------------
 -- Basic parser

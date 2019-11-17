@@ -36,7 +36,7 @@ isEnabled program = isJust . bindVariables program
 fire :: Program -> Transition -> Maybe Marking
 fire program transition = bindVariables program transition >>= applyBinding program transition
 
-bindVariables :: Program -> Transition -> Maybe (Map Var Term)
+bindVariables :: Program -> Transition -> Maybe (Map Var Token)
 bindVariables program transition
     | not isPresetMarked = Nothing
     | isPostsetBlocked = Nothing
@@ -49,7 +49,7 @@ bindVariables program transition
     isPostsetBlocked = not . Map.null . Map.intersection marking $ Map.difference postset preset
     matchPatterns = fmap Map.unions . sequence . Map.elems $ Map.intersectionWith match preset marking
 
-applyBinding :: Program -> Transition -> Map Var Term -> Maybe Marking
+applyBinding :: Program -> Transition -> Map Var Token -> Maybe Marking
 applyBinding program transition binding = calculateMarking <$> mapM (substitute binding) postset
   where
     marking = initialMarking program
@@ -57,29 +57,24 @@ applyBinding program transition binding = calculateMarking <$> mapM (substitute 
     postset = Map.findWithDefault Map.empty transition (productions program)
     calculateMarking = Map.unionWith (const id) (Map.difference marking preset)
 
-match :: Term -> Term -> Maybe (Map Var Term)
-match pattern term = case pattern of
-    Function patternSymbol patternTerms -> case term of
-        Function termSymbol termTerms
+match :: Pattern -> Token -> Maybe (Map Var Token)
+match pattern token = case pattern of
+    FunctionPattern patternSymbol patternTerms -> case token of
+        FunctionToken termSymbol termTerms
             | patternSymbol /= termSymbol -> Nothing
             | length patternTerms /= length termTerms -> Nothing
             | otherwise -> fmap Map.unions . sequence $ zipWith match patternTerms termTerms
-        IntTerm _ -> Nothing
-        Variable _ -> Nothing
-        Wildcard -> Nothing
-    IntTerm patternInt -> case term of
-        Function _ _ -> Nothing
-        IntTerm termInt
+        IntToken _ -> Nothing
+    IntPattern patternInt -> case token of
+        FunctionToken _ _ -> Nothing
+        IntToken termInt
             | patternInt == termInt -> Just Map.empty
             | otherwise -> Nothing
-        Variable _ -> Nothing
-        Wildcard -> Nothing
-    Variable var -> Just $ Map.singleton var term
-    Wildcard -> Just Map.empty
+    VariablePattern var -> Just $ Map.singleton var token
+    WildcardPattern -> Just Map.empty
 
-substitute :: Map Var Term -> Term -> Maybe Term
+substitute :: Map Var Token -> Production -> Maybe Token
 substitute binding = \case
-    Function symbol terms -> Function symbol <$> mapM (substitute binding) terms
-    term@(IntTerm _) -> Just term
-    Variable var -> Map.lookup var binding
-    Wildcard -> Nothing
+    FunctionProduction symbol terms -> FunctionToken symbol <$> mapM (substitute binding) terms
+    IntProduction n -> Just (IntToken n)
+    Substitution var -> Map.lookup var binding

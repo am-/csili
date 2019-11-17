@@ -25,13 +25,13 @@ reverseEmptyList = testProgram "Reverse (empty)" reverseProgram marking expectat
 reverseNonEmptyList :: TestTree
 reverseNonEmptyList = testProgram "Reverse (non-empty)" reverseProgram marking expectation
   where
-    list = cons (IntTerm 1) $ cons (IntTerm 2) $ cons (IntTerm 3) $ nil
-    reversedList = cons (IntTerm 3) $ cons (IntTerm 2) $ cons (IntTerm 1) $ nil
+    list = cons (IntToken 1) $ cons (IntToken 2) $ cons (IntToken 3) $ nil
+    reversedList = cons (IntToken 3) $ cons (IntToken 2) $ cons (IntToken 1) $ nil
     marking = Map.fromList [(Place "input", list)]
     expectation = Map.fromList [(Place "output", reversedList)]
 
-nil :: Term
-nil = Function (Symbol "nil") []
+nil :: Token
+nil = FunctionToken (Symbol "nil") []
 
-cons :: Term -> Term -> Term
-cons x xs =  Function (Symbol "cons") [x, xs]
+cons :: Token -> Token -> Token
+cons x xs =  FunctionToken (Symbol "cons") [x, xs]

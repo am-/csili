@@ -15,8 +15,8 @@ tests = testGroup "Pattern Matching"
 
 matching :: TestTree
 matching = testGroup "Matching"
-    [ testCase "Wildcard Pattern (top level)" topLevelWildcard
-    , testCase "Wildcard Pattern (inside)" wildcardInside
+    [ testCase "WildcardPattern Pattern (top level)" topLevelWildcardPattern
+    , testCase "WildcardPattern Pattern (inside)" wildcardInside
     , testCase "Variable (top level)" topLevelVariable
     , testCase "Variable (inside)" variableInside
     , testCase "Same Int" sameInt
@@ -28,52 +28,52 @@ matching = testGroup "Matching"
     , testCase "Different Sub Term" differentSubterm
     ]
 
-topLevelWildcard :: Assertion
-topLevelWildcard = do
-    Just Map.empty @=? match Wildcard (IntTerm 42)
-    Just Map.empty @=? match Wildcard (Function (Symbol "cons") [IntTerm 1, Function (Symbol "nil") []])
+topLevelWildcardPattern :: Assertion
+topLevelWildcardPattern = do
+    Just Map.empty @=? match WildcardPattern (IntToken 42)
+    Just Map.empty @=? match WildcardPattern (FunctionToken (Symbol "cons") [IntToken 1, FunctionToken (Symbol "nil") []])
 
 wildcardInside :: Assertion
-wildcardInside = Just Map.empty @=? match (Function (Symbol "x") [Wildcard]) (Function (Symbol "x") [IntTerm 1])
+wildcardInside = Just Map.empty @=? match (FunctionPattern (Symbol "x") [WildcardPattern]) (FunctionToken (Symbol "x") [IntToken 1])
 
 topLevelVariable :: Assertion
 topLevelVariable = do
-    Just (Map.fromList [(var, int)]) @=? match (Variable var) int
-    Just (Map.fromList [(var, function)]) @=? match (Variable var) function
+    Just (Map.fromList [(var, int)]) @=? match (VariablePattern var) int
+    Just (Map.fromList [(var, function)]) @=? match (VariablePattern var) function
   where
     var = Var "V"
-    int = IntTerm 42
-    function = Function (Symbol "cons") [IntTerm 1, Function (Symbol "nil") []]
+    int = IntToken 42
+    function = FunctionToken (Symbol "cons") [IntToken 1, FunctionToken (Symbol "nil") []]
 
 variableInside :: Assertion
-variableInside = Just (Map.fromList [(var, int)]) @=? match (Function (Symbol "x") [Variable var]) function
+variableInside = Just (Map.fromList [(var, int)]) @=? match (FunctionPattern (Symbol "x") [VariablePattern var]) function
   where
     var = Var "V"
-    int = IntTerm 1
-    function = Function (Symbol "x") [int]
+    int = IntToken 1
+    function = FunctionToken (Symbol "x") [int]
 
 sameFunction :: Assertion
-sameFunction = Just Map.empty @=? match (Function (Symbol "nil") []) (Function (Symbol "nil") [])
+sameFunction = Just Map.empty @=? match (FunctionPattern (Symbol "nil") []) (FunctionToken (Symbol "nil") [])
 
 sameInt :: Assertion
-sameInt = Just Map.empty @=? match (IntTerm 1) (IntTerm 1)
+sameInt = Just Map.empty @=? match (IntPattern 1) (IntToken 1)
 
 differentTermTypes :: Assertion
 differentTermTypes = do
-    Nothing @=? match (IntTerm 15) (Function (Symbol "nil") [])
-    Nothing @=? match (Function (Symbol "nil") []) (IntTerm 15)
+    Nothing @=? match (IntPattern 15) (FunctionToken (Symbol "nil") [])
+    Nothing @=? match (FunctionPattern (Symbol "nil") []) (IntToken 15)
 
 differentIntegerValues :: Assertion
-differentIntegerValues = Nothing @=? match (IntTerm 15) (IntTerm 16)
+differentIntegerValues = Nothing @=? match (IntPattern 15) (IntToken 16)
 
 differentTopLevelSymbol :: Assertion
-differentTopLevelSymbol = Nothing @=? match (Function (Symbol "x") []) (Function (Symbol "y") [])
+differentTopLevelSymbol = Nothing @=? match (FunctionPattern (Symbol "x") []) (FunctionToken (Symbol "y") [])
 
 differentArity :: Assertion
-differentArity = Nothing @=? match (Function (Symbol "x") [IntTerm 1, IntTerm 1]) (Function (Symbol "x") [IntTerm 1])
+differentArity = Nothing @=? match (FunctionPattern (Symbol "x") [IntPattern 1, IntPattern 1]) (FunctionToken (Symbol "x") [IntToken 1])
 
 differentSubterm :: Assertion
-differentSubterm = Nothing @=? match (Function (Symbol "x") [IntTerm 1]) (Function (Symbol "x") [IntTerm 2])
+differentSubterm = Nothing @=? match (FunctionPattern (Symbol "x") [IntPattern 1]) (FunctionToken (Symbol "x") [IntToken 2])
 
 substitution :: TestTree
 substitution = testGroup "Substitution"
@@ -85,32 +85,34 @@ substitution = testGroup "Substitution"
     ]
 
 identityWithoutVariables :: Assertion
-identityWithoutVariables = mapM_ (\term -> Just term @=? substitute Map.empty term) terms
-  where
-    terms = [IntTerm 42, Function (Symbol "x") []]
+identityWithoutVariables = do
+    Just (IntToken 42) @=? substitute Map.empty (IntProduction 42)
+    Just (FunctionToken (Symbol "x") []) @=? substitute Map.empty (FunctionProduction (Symbol "x") [])
 
 completeSubstitution :: Assertion
-completeSubstitution = Just term @=? substitute binding (Variable var)
+completeSubstitution = Just int @=? substitute binding (Substitution var)
   where
-    term = IntTerm 42
+    int = IntToken 42
     var = Var "V"
-    binding = Map.fromList [(var, term)]
+    binding = Map.fromList [(var, int)]
 
 missingVariable :: Assertion
-missingVariable = Nothing  @=? substitute binding (Variable var)
+missingVariable = Nothing  @=? substitute binding (Substitution var)
   where
     binding = Map.empty
     var = Var "V"
 
 insideSubstitution :: Assertion
-insideSubstitution = Just (Function (Symbol "cons") [term, Function (Symbol "nil") []]) @=? substitute binding (Function (Symbol "cons") [Variable var, Function (Symbol "nil") []])
+insideSubstitution = Just expectation @=? substitute binding production
   where
-    term = IntTerm 42
+    expectation = FunctionToken (Symbol "cons") [int, FunctionToken (Symbol "nil") []]
+    production = FunctionProduction (Symbol "cons") [Substitution var, FunctionProduction (Symbol "nil") []]
+    binding = Map.fromList [(var, int)]
+    int = IntToken 42
     var = Var "V"
-    binding = Map.fromList [(var, term)]
 
 missingVariableInsideSubstitution :: Assertion
-missingVariableInsideSubstitution = Nothing @=? substitute binding (Function (Symbol "cons") [IntTerm 42, Variable var])
+missingVariableInsideSubstitution = Nothing @=? substitute binding (FunctionProduction (Symbol "cons") [IntProduction 42, Substitution var])
   where
     var = Var "V"
     binding = Map.empty

@@ -13,7 +13,7 @@ import qualified Data.Text.IO as T
 import Options.Applicative
 import Paths_csili (version)
 
-import Csili.Frontend.Parser
+import Csili.Frontend
 
 main :: IO ()
 main = join . execParser $ info
@@ -47,5 +47,5 @@ runParser = RunOptions
 
 interpret :: RunOptions -> IO ()
 interpret RunOptions{..} = do
-    eitherErrorOrSemantics <- parseProgram . T.unlines <$> mapM T.readFile files
+    eitherErrorOrSemantics <- parseCsl . T.unlines <$> mapM T.readFile files
     either putStrLn (const $ return ()) eitherErrorOrSemantics
