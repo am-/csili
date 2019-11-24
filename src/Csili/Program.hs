@@ -3,8 +3,10 @@
 module Csili.Program
 ( Program(..)
 , empty
+, emptyInternalPlaces
 , emptyTransitions
 , emptyMarking
+, places
 
 , Place(..)
 , Transition(..)
@@ -30,9 +32,16 @@ import Data.Text (Text)
 
 data Program = Program
     { interface :: Interface
+    , internalPlaces :: Set Place
     , initialMarking :: Marking
     , transitions :: Set Transition
     } deriving (Show, Eq)
+
+places :: Program -> Set Place
+places program = Set.unions [inputPlaces, outputPlaces, internalPlaces program]
+  where
+    inputPlaces = input $ interface program
+    outputPlaces = output $ interface program
 
 newtype TransitionName = TransitionName Text
     deriving (Show, Eq, Ord)
@@ -75,9 +84,13 @@ type Marking = Map Place Token
 empty :: Program
 empty = Program
     { interface = emptyInterface
+    , internalPlaces = emptyInternalPlaces
     , initialMarking = emptyMarking
     , transitions = emptyTransitions
     }
+
+emptyInternalPlaces :: Set Place
+emptyInternalPlaces = Set.empty
 
 emptyMarking :: Marking
 emptyMarking = Map.empty

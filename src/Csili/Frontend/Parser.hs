@@ -4,6 +4,7 @@ module Csili.Frontend.Parser
 , file
 , term
 , interfaceBlock
+, placesBlock
 , markingBlock
 , transitionBlock
 ) where
@@ -23,6 +24,7 @@ file = clean *> syntaxTree <* endOfInput
 syntaxTree :: Parser SyntaxTree
 syntaxTree = SyntaxTree
     <$> option ([], []) (rightClean interfaceBlock)
+    <*> option [] (rightClean placesBlock)
     <*> option [] (rightClean markingBlock)
     <*> many (rightClean transitionBlock)
 
@@ -59,6 +61,9 @@ inputBlock = unnamedBlock "INPUT" placeSet
 
 outputBlock :: Parser [Text]
 outputBlock = unnamedBlock "OUTPUT" placeSet
+
+placesBlock :: Parser [Text]
+placesBlock = unnamedBlock "PLACES" placeSet
 
 markingBlock :: Parser [(Text, Term)]
 markingBlock = unnamedBlock "MARKING" (placeMap term)

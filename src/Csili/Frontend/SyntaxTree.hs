@@ -11,6 +11,7 @@ import Data.Text (Text)
 
 data SyntaxTree = SyntaxTree
     { interface :: ([Text], [Text])
+    , internalPlaces :: [Text]
     , marking :: [(Text, Term)]
     , transitions :: [(Text, ([Pattern], [Production]))]
     }

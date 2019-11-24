@@ -14,40 +14,50 @@ tests :: TestTree
 tests = testGroup "Program"
     [ programTests
     , interfaceTests
+    , internalPlacesTests
     , markingTests
     , transitionTests
     ]
 
 programTests :: TestTree
 programTests = testGroup "Program"
-    [ testCase "and.csl" andProgram
+    [ testCase "reverse.csl" reverseProgram
     , testCase "Unparseable Program" unparseableProgram
     , testCase "Consuming from Output Place" consumingFromOutputPlace
     , testCase "Producing on Input Place" producingOnInputPlace
+    , testCase "Consuming from Inexistent Place" consumingFromInexistentPlace
+    , testCase "Producing on Inexistent Place" producingOnInexistentPlace
+    , testCase "Internal Place inside Interface" internalPlaceInsideInterface
     ]
 
-andProgram :: Assertion
-andProgram = loadCsl "examples/bool/and.csl" >>= \case
+reverseProgram :: Assertion
+reverseProgram = loadCsl "examples/list/reverse.csl" >>= \case
     Left _ -> assertFailure "Couldn't load program."
     Right program -> do
         expectedInterface @=? interface program
+        expectedInternalPlaces @=? internalPlaces program
         expectedMarking @=? initialMarking program
         expectedTransitions @=? transitions program
   where
     expectedInterface = Interface
-        { input = Set.fromList [Place "input1", Place "input2"]
+        { input = Set.fromList [Place "input"]
         , output = Set.fromList [Place "output"]
         }
-    expectedMarking = Map.empty
-    expectedTransitions = Set.fromList [firstTrue, firstFalse]
-    firstTrue = Transition
-        (TransitionName "firstTrue")
-        (Map.fromList [(Place "input1", FunctionPattern (Symbol "true") []), (Place "input2", VariablePattern (Var "B"))])
-        (Map.fromList [(Place "output", Substitution (Var "B"))])
-    firstFalse = Transition
-        (TransitionName "firstFalse")
-        (Map.fromList [(Place "input1", FunctionPattern (Symbol "false") []), (Place "input2", VariablePattern (Var "B"))])
-        (Map.fromList [(Place "output", FunctionProduction (Symbol "false") [])])
+    expectedInternalPlaces = Set.fromList [Place "original", Place "reversed"]
+    expectedMarking = Map.fromList [(Place "reversed", FunctionToken (Symbol "nil") [])]
+    expectedTransitions = Set.fromList [startTransition, addElementTransition, returnTransition]
+    startTransition = Transition
+        (TransitionName "start")
+        (Map.fromList [(Place "input", VariablePattern (Var "List"))])
+        (Map.fromList [(Place "original", Substitution (Var "List"))])
+    addElementTransition = Transition
+        (TransitionName "addElement")
+        (Map.fromList [(Place "original", FunctionPattern (Symbol "cons") [VariablePattern (Var "Head"), VariablePattern (Var "Tail")]), (Place "reversed", VariablePattern (Var "ReversedList"))])
+        (Map.fromList [(Place "original", Substitution (Var "Tail")), (Place "reversed", FunctionProduction (Symbol "cons") [Substitution (Var "Head"), Substitution (Var "ReversedList")])])
+    returnTransition = Transition
+        (TransitionName "return")
+        (Map.fromList [(Place "original", FunctionPattern (Symbol "nil") []), (Place "reversed", VariablePattern (Var "ReversedList"))])
+        (Map.fromList [(Place "output", Substitution (Var "ReversedList")), (Place "reversed", FunctionProduction (Symbol "nil") [])])
 
 consumingFromOutputPlace :: Assertion
 consumingFromOutputPlace = Left expected @=? parseCsl "INTERFACE { OUTPUT { p } } TRANSITION t { MATCH { p: _ } }"
@@ -58,6 +68,21 @@ producingOnInputPlace :: Assertion
 producingOnInputPlace = Left expected @=? parseCsl "INTERFACE { INPUT { p } } TRANSITION t { PRODUCE { p: 42 } }"
   where
     expected = [ProducingOnInputPlace (TransitionName "t") (Place "p")]
+
+consumingFromInexistentPlace :: Assertion
+consumingFromInexistentPlace = Left expected @=? parseCsl "TRANSITION t { MATCH { p: _ } }"
+  where
+    expected = [ConsumingFromInexistentPlace (TransitionName "t") (Place "p")]
+
+producingOnInexistentPlace :: Assertion
+producingOnInexistentPlace = Left expected @=? parseCsl "TRANSITION t { PRODUCE { p: 42 } }"
+  where
+    expected = [ProducingOnInexistentPlace (TransitionName "t") (Place "p")]
+
+internalPlaceInsideInterface :: Assertion
+internalPlaceInsideInterface = Left expected @=? parseCsl "INTERFACE { INPUT { p } } PLACES { p }"
+  where
+    expected = [InternalPlaceInsideInterface (Place "p")]
 
 unparseableProgram :: Assertion
 unparseableProgram = Left expected @=? parseCsl "MAKRING"
@@ -85,6 +110,16 @@ duplicateInterfacePlace :: Assertion
 duplicateInterfacePlace = Left expected @=? interface <$> parseCsl "INTERFACE { INPUT { p } OUTPUT { p } }"
   where
     expected = [OverlappingInputAndOutput (Place "p")]
+
+internalPlacesTests :: TestTree
+internalPlacesTests = testGroup "Internal Places"
+    [ testCase "Duplicate Internal Place" duplicateInternalPlace
+    ]
+
+duplicateInternalPlace :: Assertion
+duplicateInternalPlace = Left expected @=? parseCsl "PLACES { p p }"
+  where
+    expected = [DuplicateInternalPlace (Place "p")]
 
 markingTests :: TestTree
 markingTests = testGroup "Initial Marking"
@@ -138,12 +173,12 @@ patternsTests = testGroup "Patterns"
     ]
 
 duplicatePattern :: Assertion
-duplicatePattern = Left expected @=? parseCsl "TRANSITION t { MATCH { p: cons(Head, Tail) p: _ } }"
+duplicatePattern = Left expected @=? parseCsl "PLACES { p } TRANSITION t { MATCH { p: cons(Head, Tail) p: _ } }"
   where
     expected = [DuplicatePattern (TransitionName "t") (Place "p")]
 
 patternWithFunction :: Assertion
-patternWithFunction = Right expected @=? transitions <$> parseCsl "TRANSITION t { MATCH { p: cons(Head, Tail) } }"
+patternWithFunction = Right expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { MATCH { p: cons(Head, Tail) } }"
   where
     expected = Set.singleton t
     t = Transition
@@ -152,7 +187,7 @@ patternWithFunction = Right expected @=? transitions <$> parseCsl "TRANSITION t 
         Map.empty
 
 patternWithInt :: Assertion
-patternWithInt = Right expected @=? transitions <$> parseCsl "TRANSITION t { MATCH { p: 42 } }"
+patternWithInt = Right expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { MATCH { p: 42 } }"
   where
     expected = Set.singleton t
     t = Transition
@@ -161,7 +196,7 @@ patternWithInt = Right expected @=? transitions <$> parseCsl "TRANSITION t { MAT
         Map.empty
 
 patternWithWildcard :: Assertion
-patternWithWildcard = Right expected @=? transitions <$> parseCsl "TRANSITION t { MATCH { p: _ } }"
+patternWithWildcard = Right expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { MATCH { p: _ } }"
   where
     expected = Set.singleton t
     t = Transition
@@ -170,7 +205,7 @@ patternWithWildcard = Right expected @=? transitions <$> parseCsl "TRANSITION t 
         Map.empty
 
 patternWithVariable :: Assertion
-patternWithVariable = Right expected @=? transitions <$> parseCsl "TRANSITION t { MATCH { p: V } }"
+patternWithVariable = Right expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { MATCH { p: V } }"
   where
     expected = Set.singleton t
     t = Transition
@@ -188,12 +223,12 @@ productionsTests = testGroup "Productions"
     ]
 
 duplicateProduction :: Assertion
-duplicateProduction = Left expected @=? parseCsl "TRANSITION t { PRODUCE { p: 42 p: nil } }"
+duplicateProduction = Left expected @=? parseCsl "PLACES { p } TRANSITION t { PRODUCE { p: 42 p: nil } }"
   where
     expected = [DuplicateProduction (TransitionName "t") (Place "p")]
 
 productionWithFunction :: Assertion
-productionWithFunction = Right expected @=? transitions <$> parseCsl "TRANSITION t { PRODUCE { p: cons(true, nil) } }"
+productionWithFunction = Right expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { PRODUCE { p: cons(true, nil) } }"
   where
     expected = Set.singleton t
     t = Transition
@@ -202,7 +237,7 @@ productionWithFunction = Right expected @=? transitions <$> parseCsl "TRANSITION
         (Map.fromList [(Place "p", FunctionProduction (Symbol "cons") [FunctionProduction (Symbol "true") [], FunctionProduction (Symbol "nil") []])])
 
 productionWithInt :: Assertion
-productionWithInt = Right expected @=? transitions <$> parseCsl "TRANSITION t { PRODUCE { p: 42 } }"
+productionWithInt = Right expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { PRODUCE { p: 42 } }"
   where
     expected = Set.singleton t
     t = Transition
@@ -211,12 +246,12 @@ productionWithInt = Right expected @=? transitions <$> parseCsl "TRANSITION t { 
         (Map.fromList [(Place "p", IntProduction 42)])
 
 productionWithWildcard :: Assertion
-productionWithWildcard = Left expected @=? transitions <$> parseCsl "TRANSITION t { PRODUCE { p: cons(_, nil) } }"
+productionWithWildcard = Left expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { PRODUCE { p: cons(_, nil) } }"
   where
     expected = [InvalidProduction (TransitionName "t") (Place "p") Wildcard]
 
 productionWithVariable :: Assertion
-productionWithVariable = Right expected @=? transitions <$> parseCsl "TRANSITION t { MATCH { p: V } PRODUCE { p: V } }"
+productionWithVariable = Right expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { MATCH { p: V } PRODUCE { p: V } }"
   where
     expected = Set.singleton t
     t = Transition

@@ -11,6 +11,7 @@ tests :: TestTree
 tests = testGroup "Parser"
     [ terms
     , interfaceBlocks
+    , placeBlocks
     , markingBlocks
     , transitionBlocks
     ]
@@ -104,6 +105,22 @@ twoToTwoInterface :: Assertion
 twoToTwoInterface = Right expectation @=? parseOnly interfaceBlock "INTERFACE { INPUT { input1 input2 } OUTPUT { output1 output2 } }"
   where
     expectation = (["input1", "input2"], ["output1", "output2"])
+
+placeBlocks :: TestTree
+placeBlocks = testGroup "Places"
+    [ testCase "Empty" emptyPlaces
+    , testCase "Non-Empty" nonEmptyPlaces
+    ]
+
+emptyPlaces :: Assertion
+emptyPlaces = Right expectation @=? parseOnly placesBlock "PLACES {}"
+  where
+    expectation = []
+
+nonEmptyPlaces :: Assertion
+nonEmptyPlaces = Right expectation @=? parseOnly placesBlock "PLACES { p q }"
+  where
+    expectation = ["p", "q"]
 
 markingBlocks :: TestTree
 markingBlocks = testGroup "Marking"

@@ -22,9 +22,13 @@ data Error
     = ParseError Text
     | ConsumingFromOutputPlace TransitionName Place
     | ProducingOnInputPlace TransitionName Place
+    | ConsumingFromInexistentPlace TransitionName Place
+    | ProducingOnInexistentPlace TransitionName Place
     | DuplicateInputPlace Place
     | DuplicateOutputPlace Place
     | OverlappingInputAndOutput Place
+    | DuplicateInternalPlace Place
+    | InternalPlaceInsideInterface Place
     | DuplicateToken Place
     | InvalidToken Place Term
     | DuplicateTransition TransitionName
@@ -41,16 +45,25 @@ convert tree = bindValidation (toProgram tree) validateProgram
 toProgram :: SyntaxTree -> Validation Errors Program
 toProgram tree = Program
     <$> bindValidation (toInterface tree) validateInterface
+    <*> toInternalPlaces tree
     <*> toInitialMarking tree
     <*> toTransitions tree
 
 validateProgram :: Program -> Validation Errors Program
-validateProgram program = case concatMap (validateTransition program) . Set.toList $ Program.transitions program of
-    [] -> pure program
-    errors -> Failure errors
+validateProgram program = toValidation $ concat
+    [ concatMap (validateTransition program) . Set.toList $ Program.transitions program
+    , validateInternalPlacesAgainstInterface (Program.interface program) (Program.internalPlaces program)
+    ]
+  where
+    toValidation = \case
+        [] -> pure program
+        errors -> Failure errors
 
 validateTransition :: Program -> Transition -> Errors
-validateTransition program = validateTransitionAgainstInterface (Program.interface program)
+validateTransition program transition = concatMap ($ transition)
+    [ validateTransitionAgainstInterface (Program.interface program)
+    , validateTransitionAgainstPlaces (Program.places program)
+    ]
 
 validateTransitionAgainstInterface :: Interface -> Transition -> Errors
 validateTransitionAgainstInterface interface transition = concat
@@ -62,15 +75,26 @@ validateTransitionAgainstInterface interface transition = concat
     postset = Map.keysSet $ Program.productions transition
     toErrors mkError = map (mkError $ Program.name transition) . Set.toAscList
 
+validateTransitionAgainstPlaces :: Set Place -> Transition -> Errors
+validateTransitionAgainstPlaces places transition = concat
+    [ toErrors ConsumingFromInexistentPlace $ Set.difference preset places
+    , toErrors ProducingOnInexistentPlace $ Set.difference postset places
+    ]
+  where
+    preset = Map.keysSet $ Program.patterns transition
+    postset = Map.keysSet $ Program.productions transition
+    toErrors mkError = map (mkError $ Program.name transition) . Set.toAscList
+
+validateInternalPlacesAgainstInterface :: Interface -> Set Place -> Errors
+validateInternalPlacesAgainstInterface interface internalPlaces = concatMap (map InternalPlaceInsideInterface . Set.toAscList)
+    [ Set.intersection internalPlaces $ Program.input interface
+    , Set.intersection internalPlaces $ Program.output interface
+    ]
+
 toInterface :: SyntaxTree -> Validation Errors Program.Interface
 toInterface tree = Program.Interface
-    <$> (toInterfacePlaces DuplicateInputPlace . fst $ SyntaxTree.interface tree)
-    <*> (toInterfacePlaces DuplicateOutputPlace . snd $ SyntaxTree.interface tree)
-
-toInterfacePlaces :: (Place -> Error) -> [Text] -> Validation Errors (Set Place)
-toInterfacePlaces mkError declarations = case findDuplicates declarations of
-    [] -> pure . Set.fromList $ map Place declarations
-    duplicates -> Failure $ map (mkError . Place) duplicates
+    <$> (toPlaces DuplicateInputPlace . fst $ SyntaxTree.interface tree)
+    <*> (toPlaces DuplicateOutputPlace . snd $ SyntaxTree.interface tree)
 
 validateInterface :: Program.Interface -> Validation Errors Program.Interface
 validateInterface interface
@@ -78,6 +102,14 @@ validateInterface interface
     | otherwise = Failure . map OverlappingInputAndOutput $ Set.toAscList overlappingPlaces
   where
     overlappingPlaces = Set.intersection (Program.input interface) (Program.output interface)
+
+toInternalPlaces :: SyntaxTree -> Validation Errors (Set Place)
+toInternalPlaces = toPlaces DuplicateInternalPlace . SyntaxTree.internalPlaces
+
+toPlaces :: (Place -> Error) -> [Text] -> Validation Errors (Set Place)
+toPlaces mkError declarations = case findDuplicates declarations of
+    [] -> pure . Set.fromList $ map Place declarations
+    duplicates -> Failure $ map (mkError . Place) duplicates
 
 toInitialMarking :: SyntaxTree -> Validation Errors Program.Marking
 toInitialMarking tree = case findDuplicates . map fst $ SyntaxTree.marking tree of
