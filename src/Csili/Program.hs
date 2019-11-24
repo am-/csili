@@ -3,12 +3,12 @@
 module Csili.Program
 ( Program(..)
 , empty
-, transitions
-, places
-, symbols
+, emptyTransitions
+, emptyMarking
 
 , Place(..)
 , Transition(..)
+, TransitionName(..)
 , Pattern(..)
 , Production(..)
 , Token(..)
@@ -31,9 +31,17 @@ import Data.Text (Text)
 data Program = Program
     { interface :: Interface
     , initialMarking :: Marking
-    , patterns :: Map Transition (Map Place Pattern)
-    , productions :: Map Transition (Map Place Production)
+    , transitions :: Set Transition
     } deriving (Show, Eq)
+
+newtype TransitionName = TransitionName Text
+    deriving (Show, Eq, Ord)
+
+data Transition = Transition
+    { name :: TransitionName
+    , patterns :: Map Place Pattern
+    , productions :: Map Place Production
+    } deriving (Show, Eq, Ord)
 
 newtype Symbol = Symbol Text
     deriving (Show, Eq, Ord)
@@ -42,9 +50,6 @@ newtype Var = Var Text
     deriving (Show, Eq, Ord)
 
 newtype Place = Place Text
-    deriving (Show, Eq, Ord)
-
-newtype Transition = Transition Text
     deriving (Show, Eq, Ord)
 
 data Token
@@ -69,34 +74,19 @@ type Marking = Map Place Token
 
 empty :: Program
 empty = Program
-      { interface = emptyInterface
-      , initialMarking = Map.empty
-      , patterns = Map.empty
-      , productions = Map.empty
-      }
+    { interface = emptyInterface
+    , initialMarking = emptyMarking
+    , transitions = emptyTransitions
+    }
 
-transitions :: Program -> Set Transition
-transitions program = Set.unions
-    [ Map.keysSet (patterns program)
-    , Map.keysSet (productions program)
-    ]
-
-places :: Program -> Set Place
-places program = Set.unions
-    [ Map.keysSet . initialMarking $ program
-    , Set.unions . map Map.keysSet . Map.elems $ patterns program
-    , Set.unions . map Map.keysSet . Map.elems $ productions program
-    ]
-
-symbols :: Program -> Set Symbol
-symbols program = Set.unions $ concat
-    [ map collect . Map.elems . initialMarking $ program
-    , map collect . concatMap Map.elems . Map.elems . patterns $ program
-    , map collect . concatMap Map.elems . Map.elems . productions $ program
-    ]
+emptyMarking :: Marking
+emptyMarking = Map.empty
 
 replaceMarking :: Program -> Marking -> Program
 replaceMarking program marking = program { initialMarking = marking }
+
+emptyTransitions :: Set Transition
+emptyTransitions = Set.empty
 
 data Interface = Interface
     { input :: Set Place

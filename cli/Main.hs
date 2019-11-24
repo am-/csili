@@ -14,6 +14,7 @@ import Options.Applicative
 import Paths_csili (version)
 
 import Csili.Frontend
+import Csili.Interpreter (evaluate)
 
 main :: IO ()
 main = join . execParser $ info
@@ -33,7 +34,7 @@ csiliInformation = fullDesc <> header "Csili - An Intermediate Language For Conc
 --------------------------------------------------------------------------------
 
 data RunOptions = RunOptions
-    { files :: [FilePath]
+    { file :: FilePath
     }
 
 run :: ParserInfo (IO ())
@@ -43,9 +44,12 @@ run = info
 
 runParser :: Parser RunOptions
 runParser = RunOptions
-    <$> some (argument str (metavar "INPUT.."))
+    <$> argument str (metavar "INPUT")
 
 interpret :: RunOptions -> IO ()
-interpret RunOptions{..} = do
-    eitherErrorOrSemantics <- parseCsl . T.unlines <$> mapM T.readFile files
-    either putStrLn (const $ return ()) eitherErrorOrSemantics
+interpret RunOptions{..} = loadCsl file >>= \case
+    Left errors -> mapM_ printError errors
+    Right program -> evaluate program `seq` return ()
+
+printError :: Error -> IO ()
+printError = T.putStrLn . T.pack . show

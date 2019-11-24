@@ -24,38 +24,36 @@ run program = calculateFinalMarking . evaluate . replaceMarking program . calcul
 evaluate :: Program -> Marking
 evaluate program = go (initialMarking program)
   where
-   go marking = case mapMaybe (fire $ replaceMarking program marking) (findEnabledTransitions marking) of
+   go marking = case mapMaybe (fire marking) (findEnabledTransitions marking) of
        [] -> marking
        newMarking:_ -> go newMarking
-   findEnabledTransitions marking = filter (isEnabled $ replaceMarking program marking) allTransitions
-   allTransitions = Set.toList $ transitions program
+   findEnabledTransitions marking = filter (isEnabled marking) allTransitions
+   allTransitions = Set.elems $ transitions program
 
-isEnabled :: Program -> Transition -> Bool
-isEnabled program = isJust . bindVariables program
+isEnabled :: Marking -> Transition -> Bool
+isEnabled marking = isJust . bindVariables marking
 
-fire :: Program -> Transition -> Maybe Marking
-fire program transition = bindVariables program transition >>= applyBinding program transition
+fire :: Marking -> Transition -> Maybe Marking
+fire marking transition = bindVariables marking transition >>= applyBinding marking transition
 
-bindVariables :: Program -> Transition -> Maybe (Map Var Token)
-bindVariables program transition
+bindVariables :: Marking -> Transition -> Maybe (Map Var Token)
+bindVariables marking transition
     | not isPresetMarked = Nothing
     | isPostsetBlocked = Nothing
     | otherwise = matchPatterns
   where
-    marking = initialMarking program
-    preset = Map.findWithDefault Map.empty transition (patterns program)
-    postset = Map.findWithDefault Map.empty transition (productions program)
+    preset = patterns transition
+    postset = productions transition
     isPresetMarked = Map.null $ Map.difference preset marking
     isPostsetBlocked = not . Map.null . Map.intersection marking $ Map.difference postset preset
     matchPatterns = fmap Map.unions . sequence . Map.elems $ Map.intersectionWith match preset marking
 
-applyBinding :: Program -> Transition -> Map Var Token -> Maybe Marking
-applyBinding program transition binding = calculateMarking <$> mapM (substitute binding) postset
+applyBinding :: Marking -> Transition -> Map Var Token -> Maybe Marking
+applyBinding marking transition binding = calculateMarking <$> mapM (substitute binding) postset
   where
-    marking = initialMarking program
-    preset = Map.findWithDefault Map.empty transition (patterns program)
-    postset = Map.findWithDefault Map.empty transition (productions program)
-    calculateMarking = Map.unionWith (const id) (Map.difference marking preset)
+    preset = patterns transition
+    postset = productions transition
+    calculateMarking = flip Map.union (Map.difference marking preset)
 
 match :: Pattern -> Token -> Maybe (Map Var Token)
 match pattern token = case pattern of

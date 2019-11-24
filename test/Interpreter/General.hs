@@ -41,8 +41,7 @@ evaluateIgnoresInterface = testCase "Evaluate Ignores Interface" $ expectation @
             { input = Set.fromList [Place "input"]
             , output = Set.fromList [Place "output"]
             }
-        , patterns = Map.fromList [(Transition "store", storePattern)]
-        , productions = Map.fromList [(Transition "store", storeProduction)]
+        , transitions = Set.singleton (Transition (TransitionName "store") storePattern storeProduction)
         }
     storePattern = Map.fromList [(Place "input", VariablePattern (Var "New")), (Place "store", VariablePattern (Var "Old"))]
     storeProduction = Map.fromList [(Place "output", Substitution (Var "Old")), (Place "store", Substitution (Var "New"))]

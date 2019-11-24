@@ -1,7 +1,6 @@
 INTERFACE {
   INPUT {
     input
-    input
   }
   OUTPUT {
     output
@@ -9,27 +8,36 @@ INTERFACE {
 }
 
 MARKING {
-  accumulator: nil
+  reversed: nil
+}
+
+TRANSITION start {
+  MATCH {
+    input: List
+  }
+  PRODUCE {
+    original: List
+  }
 }
 
 TRANSITION addElement {
   MATCH {
-    input: cons(Head, Tail)
-    accumulator: ReversedList
+    original: cons(Head, Tail)
+    reversed: ReversedList
   }
   PRODUCE {
-    input: Tail
-    accumulator: cons(Head, ReversedList)
+    original: Tail
+    reversed: cons(Head, ReversedList)
   }
 }
 
 TRANSITION return {
   MATCH {
-    input: nil
-    accumulator: ReversedList
+    original: nil
+    reversed: ReversedList
   }
   PRODUCE {
-    accumulator: nil
+    reversed: nil
     output: ReversedList
   }
 }

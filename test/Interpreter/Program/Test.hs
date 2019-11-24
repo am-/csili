@@ -8,5 +8,5 @@ import Csili.Interpreter
 
 testProgram :: String -> FilePath -> Marking -> Marking -> TestTree
 testProgram label programFile marking expectation = testCase label $ loadCsl programFile >>= \case
-    Left reason -> assertFailure reason
+    Left _ -> assertFailure "Couldn't load program."
     Right program -> expectation @=? run program marking

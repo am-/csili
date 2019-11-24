@@ -1,5 +1,3 @@
-{-# LANGUAGE ApplicativeDo #-}
-
 module Csili.Frontend.Parser
 ( SyntaxTree(..)
 , Term(..)
@@ -17,23 +15,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Prelude hiding (takeWhile)
 
-data SyntaxTree = SyntaxTree
-    { interface :: ([Text], [Text])
-    , marking :: [(Text, Term)]
-    , transitions :: [(Text, ([Pattern], [Production]))]
-    }
-
-type Symbol = Text
-type Var = Text
-type Pattern = (Text, Term)
-type Production = (Text, Term)
-
-data Term
-    = Function Symbol [Term]
-    | IntTerm Int
-    | Variable Var
-    | Wildcard
-    deriving (Show, Eq, Ord)
+import Csili.Frontend.SyntaxTree
 
 file :: Parser SyntaxTree
 file = clean *> syntaxTree <* endOfInput
