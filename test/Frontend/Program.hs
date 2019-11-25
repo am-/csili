@@ -23,11 +23,6 @@ programTests :: TestTree
 programTests = testGroup "Program"
     [ testCase "reverse.csl" reverseProgram
     , testCase "Unparseable Program" unparseableProgram
-    , testCase "Consuming from Output Place" consumingFromOutputPlace
-    , testCase "Producing on Input Place" producingOnInputPlace
-    , testCase "Consuming from Inexistent Place" consumingFromInexistentPlace
-    , testCase "Producing on Inexistent Place" producingOnInexistentPlace
-    , testCase "Internal Place inside Interface" internalPlaceInsideInterface
     ]
 
 reverseProgram :: Assertion
@@ -114,6 +109,7 @@ duplicateInterfacePlace = Left expected @=? interface <$> parseCsl "INTERFACE { 
 internalPlacesTests :: TestTree
 internalPlacesTests = testGroup "Internal Places"
     [ testCase "Duplicate Internal Place" duplicateInternalPlace
+    , testCase "Internal Place inside Interface" internalPlaceInsideInterface
     ]
 
 duplicateInternalPlace :: Assertion
@@ -124,6 +120,8 @@ duplicateInternalPlace = Left expected @=? parseCsl "PLACES { p p }"
 markingTests :: TestTree
 markingTests = testGroup "Initial Marking"
     [ testCase "Duplicate Token" initialMarkingWithDuplicateToken
+    , testCase "Token on Inexistent Place" initialMarkingContainingInexistentPlace
+    , testCase "Token on Interface Place" initialMarkingContainingInterfacePlace
     , testCase "Function" initialMarkingWithFunction
     , testCase "Int"  initialMarkingWithInt
     , testCase "Wildcard" initialMarkingWithWildcard
@@ -135,21 +133,31 @@ initialMarkingWithDuplicateToken = Left expected @=? parseCsl "MARKING { p: nil 
   where
     expected = [DuplicateToken (Place "p")]
 
+initialMarkingContainingInexistentPlace :: Assertion
+initialMarkingContainingInexistentPlace = Left expected @=? parseCsl "MARKING { p: nil }"
+  where
+    expected = [TokenOnInexistentPlace (Place "p")]
+
+initialMarkingContainingInterfacePlace :: Assertion
+initialMarkingContainingInterfacePlace = Left expected @=? parseCsl "INTERFACE { INPUT { p } } MARKING { p: nil }"
+  where
+    expected = [TokenOnInterfacePlace (Place "p")]
+
 initialMarkingWithFunction :: Assertion
-initialMarkingWithFunction = Right expected @=? initialMarking <$> parseCsl "MARKING { p: cons(42, nil) }"
+initialMarkingWithFunction = Right expected @=? initialMarking <$> parseCsl "PLACES { p } MARKING { p: cons(42, nil) }"
   where
     expected = Map.fromList [(Place "p", FunctionToken (Symbol "cons") [IntToken 42, FunctionToken (Symbol "nil") []])]
 
 initialMarkingWithInt :: Assertion
-initialMarkingWithInt = Right expected @=? initialMarking <$> parseCsl "MARKING { p: 42 }"
+initialMarkingWithInt = Right expected @=? initialMarking <$> parseCsl "PLACES { p } MARKING { p: 42 }"
   where
     expected = Map.fromList [(Place "p", IntToken 42)]
 
 initialMarkingWithWildcard :: Assertion
-initialMarkingWithWildcard = Left [InvalidToken (Place "p") Wildcard] @=? parseCsl "MARKING { p: _ }"
+initialMarkingWithWildcard = Left [InvalidToken (Place "p") Wildcard] @=? parseCsl "PLACES { p } MARKING { p: _ }"
 
 initialMarkingWithVariable :: Assertion
-initialMarkingWithVariable = Left [InvalidToken (Place "p") (Variable "V")] @=? parseCsl "MARKING { p: cons(V, nil) }"
+initialMarkingWithVariable = Left [InvalidToken (Place "p") (Variable "V")] @=? parseCsl "PLACES { p } MARKING { p: cons(V, nil) }"
 
 transitionTests :: TestTree
 transitionTests = testGroup "Transitions"
@@ -165,7 +173,11 @@ duplicateTransitions = Left expected @=? parseCsl "TRANSITION t {} TRANSITION t 
 
 patternsTests :: TestTree
 patternsTests = testGroup "Patterns"
-    [ testCase "Duplicate Pattern" duplicatePattern
+    [ testCase "Consuming from Output Place" consumingFromOutputPlace
+    , testCase "Consuming from Inexistent Place" consumingFromInexistentPlace
+    , testCase "Duplicate Pattern" duplicatePattern
+    , testCase "Duplicate Variable in Pattern" duplicateVariableInPattern
+    , testCase "Duplicate Variable in Different Patterns" duplicateVariableInPatterns
     , testCase "Function" patternWithFunction
     , testCase "Int" patternWithInt
     , testCase "Wildcard" patternWithWildcard
@@ -176,6 +188,16 @@ duplicatePattern :: Assertion
 duplicatePattern = Left expected @=? parseCsl "PLACES { p } TRANSITION t { MATCH { p: cons(Head, Tail) p: _ } }"
   where
     expected = [DuplicatePattern (TransitionName "t") (Place "p")]
+
+duplicateVariableInPattern :: Assertion
+duplicateVariableInPattern = Left expected @=? parseCsl "PLACES { p } TRANSITION t { MATCH { p: cons(X, X) } }"
+  where
+    expected = [DuplicateVariableInPattern (TransitionName "t") (Place "p") (Var "X")]
+
+duplicateVariableInPatterns :: Assertion
+duplicateVariableInPatterns = Left expected @=? parseCsl "PLACES { p q } TRANSITION t { MATCH { p: X q: cons(X, Y) } }"
+  where
+    expected = [DuplicateVariableInDifferentPatterns (TransitionName "t") (Var "X") (Set.fromList [Place "p", Place "q"])]
 
 patternWithFunction :: Assertion
 patternWithFunction = Right expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { MATCH { p: cons(Head, Tail) } }"
@@ -215,7 +237,10 @@ patternWithVariable = Right expected @=? transitions <$> parseCsl "PLACES { p } 
 
 productionsTests :: TestTree
 productionsTests = testGroup "Productions"
-    [ testCase "Duplicate Production" duplicateProduction
+    [ testCase "Producing on Input Place" producingOnInputPlace
+    , testCase "Producing on Inexistent Place" producingOnInexistentPlace
+    , testCase "Duplicate Production" duplicateProduction
+    , testCase "Substitution of Unknown Variable" substitutionOfUnknownVariable
     , testCase "Function" productionWithFunction
     , testCase "Int" productionWithInt
     , testCase "Wildcard" productionWithWildcard
@@ -226,6 +251,11 @@ duplicateProduction :: Assertion
 duplicateProduction = Left expected @=? parseCsl "PLACES { p } TRANSITION t { PRODUCE { p: 42 p: nil } }"
   where
     expected = [DuplicateProduction (TransitionName "t") (Place "p")]
+
+substitutionOfUnknownVariable :: Assertion
+substitutionOfUnknownVariable = Left expected @=? parseCsl "PLACES { p } TRANSITION t { PRODUCE { p: cons(X, Y) } }"
+  where
+    expected = [UnknownVariableInSubstitution (TransitionName "t") (Place "p") (Set.fromList [Var "X", Var "Y"])]
 
 productionWithFunction :: Assertion
 productionWithFunction = Right expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { PRODUCE { p: cons(true, nil) } }"

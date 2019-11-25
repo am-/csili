@@ -15,8 +15,9 @@ import Data.Validation (Validation(..), bindValidation)
 
 import Csili.Frontend.SyntaxTree (SyntaxTree, Term(..))
 import qualified Csili.Frontend.SyntaxTree as SyntaxTree (SyntaxTree(..), Pattern, Production)
-import Csili.Program (Program(Program), Transition, TransitionName(..), Interface, Token(..), Place(..), Pattern(..), Production(..))
+import Csili.Program (Program(Program), Transition, TransitionName(..), Interface, Token(..), Place(..), Pattern(..), Production(..), Var(..), Marking)
 import qualified Csili.Program as Program
+import Data.Maybe (mapMaybe)
 
 data Error
     = ParseError Text
@@ -30,11 +31,16 @@ data Error
     | DuplicateInternalPlace Place
     | InternalPlaceInsideInterface Place
     | DuplicateToken Place
+    | TokenOnInexistentPlace Place
+    | TokenOnInterfacePlace Place
     | InvalidToken Place Term
     | DuplicateTransition TransitionName
     | DuplicatePattern TransitionName Place
+    | DuplicateVariableInPattern TransitionName Place Var
+    | DuplicateVariableInDifferentPatterns TransitionName Var (Set Place)
     | DuplicateProduction TransitionName Place
     | InvalidProduction TransitionName Place Term
+    | UnknownVariableInSubstitution TransitionName Place (Set Var)
     deriving (Show, Eq)
 
 type Errors = [Error]
@@ -53,6 +59,8 @@ validateProgram :: Program -> Validation Errors Program
 validateProgram program = toValidation $ concat
     [ concatMap (validateTransition program) . Set.toList $ Program.transitions program
     , validateInternalPlacesAgainstInterface (Program.interface program) (Program.internalPlaces program)
+    , validateInitialMarkingAgainstInterfacePlaces (Program.interface program) (Program.initialMarking program)
+    , validateInitialMarkingAgainstInternalPlaces (Program.interface program) (Program.internalPlaces program) (Program.initialMarking program)
     ]
   where
     toValidation = \case
@@ -63,6 +71,9 @@ validateTransition :: Program -> Transition -> Errors
 validateTransition program transition = concatMap ($ transition)
     [ validateTransitionAgainstInterface (Program.interface program)
     , validateTransitionAgainstPlaces (Program.places program)
+    , validateVariablesInPatterns
+    , validateVariablesInDifferentPatterns
+    , validateVariablesInProductions
     ]
 
 validateTransitionAgainstInterface :: Interface -> Transition -> Errors
@@ -75,6 +86,22 @@ validateTransitionAgainstInterface interface transition = concat
     postset = Map.keysSet $ Program.productions transition
     toErrors mkError = map (mkError $ Program.name transition) . Set.toAscList
 
+validateInitialMarkingAgainstInterfacePlaces :: Interface -> Marking -> Errors
+validateInitialMarkingAgainstInterfacePlaces interface marking = concatMap (toErrors . Set.intersection markedPlaces)
+    [ Program.output interface
+    , Program.input interface
+    ]
+  where
+    toErrors = map TokenOnInterfacePlace . Set.toAscList
+    markedPlaces = Map.keysSet marking
+
+validateInitialMarkingAgainstInternalPlaces :: Interface -> Set Place -> Marking -> Errors
+validateInitialMarkingAgainstInternalPlaces interface internalPlaces marking = toErrors (Set.difference markedPlaces places)
+  where
+    toErrors = map TokenOnInexistentPlace . Set.toAscList
+    markedPlaces = Map.keysSet marking
+    places = Set.unions [internalPlaces, Program.input interface, Program.output interface]
+
 validateTransitionAgainstPlaces :: Set Place -> Transition -> Errors
 validateTransitionAgainstPlaces places transition = concat
     [ toErrors ConsumingFromInexistentPlace $ Set.difference preset places
@@ -84,6 +111,39 @@ validateTransitionAgainstPlaces places transition = concat
     preset = Map.keysSet $ Program.patterns transition
     postset = Map.keysSet $ Program.productions transition
     toErrors mkError = map (mkError $ Program.name transition) . Set.toAscList
+
+validateVariablesInPatterns :: Transition -> Errors
+validateVariablesInPatterns transition = concatMap toError . Map.assocs $ Program.patterns transition
+  where
+    toError (place, pattern) = map (mkError place) . findDuplicates $ findVariables pattern
+    mkError = DuplicateVariableInPattern (Program.name transition)
+    findVariables = \case
+        Program.FunctionPattern _ patterns -> concatMap findVariables patterns
+        Program.IntPattern _ -> []
+        Program.VariablePattern var -> [var]
+        Program.WildcardPattern -> []
+
+validateVariablesInDifferentPatterns :: Transition -> Errors
+validateVariablesInDifferentPatterns transition = mapMaybe toError variables
+  where
+    patterns = Program.patterns transition
+    toError var
+        | Set.size containingPatterns == 1 = Nothing
+        | otherwise = Just $ mkError var containingPatterns
+      where
+        containingPatterns = Map.keysSet $ Map.filter (Set.member var . Program.collect) patterns
+    mkError var = DuplicateVariableInDifferentPatterns (Program.name transition) var
+    variables = Set.toAscList . Set.unions . map Program.collect $ Map.elems patterns
+
+validateVariablesInProductions :: Transition -> Errors
+validateVariablesInProductions transition = mapMaybe toError . Map.assocs $ Program.productions transition
+  where
+    definedVariables = Set.unions . map Program.collect . Map.elems $ Program.patterns transition
+    toError (place, production)
+        | Set.null unknownVariables = Nothing
+        | otherwise = Just $ UnknownVariableInSubstitution (Program.name transition) place unknownVariables
+      where
+        unknownVariables = Set.difference (Program.collect production) definedVariables
 
 validateInternalPlacesAgainstInterface :: Interface -> Set Place -> Errors
 validateInternalPlacesAgainstInterface interface internalPlaces = concatMap (map InternalPlaceInsideInterface . Set.toAscList)

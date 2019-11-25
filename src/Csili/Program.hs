@@ -22,6 +22,8 @@ module Csili.Program
 
 , Interface(..)
 , emptyInterface
+
+, Collectible(..)
 ) where
 
 import Data.Map (Map)
