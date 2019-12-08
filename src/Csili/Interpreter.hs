@@ -8,33 +8,36 @@ module Csili.Interpreter
 , substitute
 ) where
 
+import Data.Char (chr)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import Data.Maybe (isJust, mapMaybe)
+import Data.Maybe (isJust)
+import System.IO (hPutChar)
 
 import Csili.Program
 
-run :: Program -> Marking -> Marking
-run program = calculateFinalMarking . evaluate . replaceMarking program . calculateInitialMarking
+run :: Program -> Marking -> IO Marking
+run program = fmap calculateFinalMarking . evaluate . replaceMarking program . calculateInitialMarking
   where
     calculateInitialMarking = Map.union (initialMarking program) . flip Map.restrictKeys (input $ interface program)
     calculateFinalMarking = flip Map.restrictKeys (output $ interface program)
 
-evaluate :: Program -> Marking
-evaluate program = go (initialMarking program)
+evaluate :: Program -> IO Marking
+evaluate program = go (initialMarking program) allTransitions
   where
-   go marking = case mapMaybe (fire marking) (findEnabledTransitions marking) of
-       [] -> marking
-       newMarking:_ -> go newMarking
-   findEnabledTransitions marking = filter (isEnabled marking) allTransitions
+   go marking = \case
+       [] -> return marking
+       transition:remainingTransitions -> fire marking transition >>= \case
+           Nothing -> go marking remainingTransitions
+           Just newMarking -> go newMarking allTransitions
    allTransitions = Set.elems $ transitions program
 
 isEnabled :: Marking -> Transition -> Bool
 isEnabled marking = isJust . bindVariables marking
 
-fire :: Marking -> Transition -> Maybe Marking
-fire marking transition = bindVariables marking transition >>= applyBinding marking transition
+fire :: Marking -> Transition -> IO (Maybe Marking)
+fire marking transition = maybe (return Nothing) (applyBinding marking transition) $ bindVariables marking transition
 
 bindVariables :: Marking -> Transition -> Maybe (Map Var Token)
 bindVariables marking transition
@@ -42,18 +45,27 @@ bindVariables marking transition
     | isPostsetBlocked = Nothing
     | otherwise = matchPatterns
   where
-    preset = patterns transition
-    postset = productions transition
-    isPresetMarked = Map.null $ Map.difference preset marking
-    isPostsetBlocked = not . Map.null . Map.intersection marking $ Map.difference postset preset
-    matchPatterns = fmap Map.unions . sequence . Map.elems $ Map.intersectionWith match preset marking
+    markedPlaces = Map.keysSet marking
+    isPresetMarked = Set.null $ Set.difference (prePlaces transition) markedPlaces
+    isPostsetBlocked = not . Set.null . Set.intersection (postPlaces transition) . Set.difference markedPlaces $ prePlaces transition
+    matchPatterns = fmap Map.unions . sequence . Map.elems $ Map.intersectionWith match (patterns transition) marking
 
-applyBinding :: Marking -> Transition -> Map Var Token -> Maybe Marking
-applyBinding marking transition binding = calculateMarking <$> mapM (substitute binding) postset
+applyBinding :: Marking -> Transition -> Map Var Token -> IO (Maybe Marking)
+applyBinding marking transition binding = fmap calculateMarking . sequence <$> mapM (produce binding) postset
   where
     preset = patterns transition
     postset = productions transition
     calculateMarking = flip Map.union (Map.difference marking preset)
+
+produce :: Map Var Token -> Production -> IO (Maybe Token)
+produce binding = \case
+    Construct rule -> return $ substitute binding rule
+    Evaluate effect -> case effect of
+        WriteByte stream byte -> case (,) <$> substitute binding stream <*> substitute binding byte of
+            Just (Resource handle, IntToken n) -> do
+                hPutChar handle (chr $ n `mod` 256)
+                return . Just $ FunctionToken (Symbol "signal") []
+            _ -> return Nothing
 
 match :: Pattern -> Token -> Maybe (Map Var Token)
 match pattern token = case pattern of
@@ -63,16 +75,18 @@ match pattern token = case pattern of
             | length patternTerms /= length termTerms -> Nothing
             | otherwise -> fmap Map.unions . sequence $ zipWith match patternTerms termTerms
         IntToken _ -> Nothing
+        Resource _ -> Nothing
     IntPattern patternInt -> case token of
         FunctionToken _ _ -> Nothing
         IntToken termInt
             | patternInt == termInt -> Just Map.empty
-            | otherwise -> Nothing
+            | otherwise -> Nothing        
+        Resource _ -> Nothing
     VariablePattern var -> Just $ Map.singleton var token
     WildcardPattern -> Just Map.empty
 
-substitute :: Map Var Token -> Production -> Maybe Token
+substitute :: Map Var Token -> ConstructionRule -> Maybe Token
 substitute binding = \case
-    FunctionProduction symbol terms -> FunctionToken symbol <$> mapM (substitute binding) terms
-    IntProduction n -> Just (IntToken n)
+    FunctionConstruction symbol terms -> FunctionToken symbol <$> mapM (substitute binding) terms
+    IntConstruction n -> Just (IntToken n)
     Substitution var -> Map.lookup var binding

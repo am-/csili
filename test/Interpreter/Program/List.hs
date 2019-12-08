@@ -17,13 +17,13 @@ reverseProgram :: FilePath
 reverseProgram = "examples/list/reverse.csl"
 
 reverseEmptyList :: TestTree
-reverseEmptyList = testProgram "Reverse (empty)" reverseProgram marking expectation
+reverseEmptyList = testProgramAgainstMarking "Reverse (empty)" reverseProgram marking expectation
   where
     marking = Map.fromList [(Place "input", nil)]
     expectation = Map.fromList [(Place "output", nil)]
 
 reverseNonEmptyList :: TestTree
-reverseNonEmptyList = testProgram "Reverse (non-empty)" reverseProgram marking expectation
+reverseNonEmptyList = testProgramAgainstMarking "Reverse (non-empty)" reverseProgram marking expectation
   where
     list = cons (IntToken 1) $ cons (IntToken 2) $ cons (IntToken 3) $ nil
     reversedList = cons (IntToken 3) $ cons (IntToken 2) $ cons (IntToken 1) $ nil

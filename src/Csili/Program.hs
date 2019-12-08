@@ -10,9 +10,19 @@ module Csili.Program
 
 , Place(..)
 , Transition(..)
+, mkTransition
+, isEffectful
+, constructions
+, effects
+, areStructurallyConflicting
+, prePlaces
+, postPlaces
 , TransitionName(..)
 , Pattern(..)
+, areOverlapping
 , Production(..)
+, ConstructionRule(..)
+, Effect(..)
 , Token(..)
 , Var(..)
 , Symbol(..)
@@ -26,11 +36,13 @@ module Csili.Program
 , Collectible(..)
 ) where
 
+import Data.Function (on)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Text (Text)
+import System.IO (Handle)
 
 data Program = Program
     { interface :: Interface
@@ -54,6 +66,51 @@ data Transition = Transition
     , productions :: Map Place Production
     } deriving (Show, Eq, Ord)
 
+mkTransition :: Text -> Transition
+mkTransition transitionName = Transition
+    (TransitionName transitionName)
+    Map.empty
+    Map.empty
+
+isEffectful :: Transition -> Bool
+isEffectful = not . Map.null . effects
+
+constructions :: Transition -> Map Place ConstructionRule
+constructions = Map.mapMaybe extractConstruction . productions
+  where
+    extractConstruction = \case
+        Construct construction -> Just construction
+        Evaluate _ -> Nothing
+
+effects :: Transition -> Map Place Effect
+effects = Map.mapMaybe extractEffect . productions
+  where
+    extractEffect = \case
+        Construct _ -> Nothing
+        Evaluate effect -> Just effect
+
+prePlaces :: Transition -> Set Place
+prePlaces = Map.keysSet . patterns
+
+postPlaces :: Transition -> Set Place
+postPlaces = Map.keysSet . productions
+
+areStructurallyConflicting :: Transition -> Transition -> Bool
+areStructurallyConflicting transition1 transition2
+    | name transition1 == name transition2 = False
+    | haveDisjointPreset && canDeactivateByProducing = True
+    | not haveDisjointPreset && haveOverlappingPatterns = True
+    | otherwise = False
+  where
+    haveDisjointPreset = Set.null commonPreset
+    haveOverlappingPatterns = and (on comparePatterns restrictToCommonPreset transition1 transition2)
+    commonPreset = on Set.intersection prePlaces transition1 transition2
+    restrictToCommonPreset = flip Map.restrictKeys commonPreset . patterns
+    comparePatterns = Map.intersectionWith areOverlapping
+    canDeactivateByProducing = not $ Set.disjoint
+        (Set.difference (postPlaces transition1) (prePlaces transition2))
+        (Set.difference (postPlaces transition2) (prePlaces transition1))
+
 newtype Symbol = Symbol Text
     deriving (Show, Eq, Ord)
 
@@ -66,7 +123,8 @@ newtype Place = Place Text
 data Token
     = FunctionToken Symbol [Token]
     | IntToken Int
-    deriving (Show, Eq, Ord)
+    | Resource Handle
+    deriving (Show, Eq)
 
 data Pattern
     = FunctionPattern Symbol [Pattern]
@@ -75,10 +133,30 @@ data Pattern
     | WildcardPattern
     deriving (Show, Eq, Ord)
 
+areOverlapping :: Pattern -> Pattern -> Bool
+areOverlapping pattern1 pattern2 = case pattern1 of
+    FunctionPattern symbol1 patterns1 -> case pattern2 of
+        FunctionPattern symbol2 patterns2 -> symbol1 == symbol2 && and (zipWith areOverlapping patterns1 patterns2)
+        _ -> False
+    IntPattern n1 -> case pattern2 of
+        IntPattern n2 -> n1 == n2
+        _ -> False
+    VariablePattern _ -> True
+    WildcardPattern -> True
+
 data Production
-    = FunctionProduction Symbol [Production]
-    | IntProduction Int
+    = Construct ConstructionRule
+    | Evaluate Effect
+    deriving (Show, Eq, Ord)
+
+data ConstructionRule
+    = FunctionConstruction Symbol [ConstructionRule]
+    | IntConstruction Int
     | Substitution Var
+    deriving (Show, Eq, Ord)
+
+data Effect
+    = WriteByte ConstructionRule ConstructionRule
     deriving (Show, Eq, Ord)
 
 type Marking = Map Place Token
@@ -121,6 +199,7 @@ instance Collectible Token Symbol where
     collect = \case
         FunctionToken symbol terms -> Set.insert symbol (Set.unions (map collect terms))
         IntToken _ -> Set.empty
+        Resource _ -> Set.empty
 
 instance Collectible Pattern Symbol where
     collect = \case
@@ -131,8 +210,17 @@ instance Collectible Pattern Symbol where
 
 instance Collectible Production Symbol where
     collect = \case
-        FunctionProduction symbol terms ->  Set.insert symbol (Set.unions (map collect terms))
-        IntProduction _ -> Set.empty
+        Construct construction -> collect construction
+        Evaluate effect -> collect effect
+
+instance Collectible Effect Symbol where
+    collect = \case
+        WriteByte stream byte -> Set.union (collect stream) (collect byte)
+
+instance Collectible ConstructionRule Symbol where
+    collect = \case
+        FunctionConstruction symbol terms ->  Set.insert symbol (Set.unions (map collect terms))
+        IntConstruction _ -> Set.empty
         Substitution _ -> Set.empty
 
 instance Collectible Token Var where
@@ -147,6 +235,15 @@ instance Collectible Pattern Var where
 
 instance Collectible Production Var where
     collect = \case
-        FunctionProduction _ terms -> Set.unions (map collect terms)
-        IntProduction _ -> Set.empty
+        Construct construction -> collect construction
+        Evaluate effect -> collect effect
+
+instance Collectible ConstructionRule Var where
+    collect = \case
+        FunctionConstruction _ terms -> Set.unions (map collect terms)
+        IntConstruction _ -> Set.empty
         Substitution var -> Set.singleton var
+
+instance Collectible Effect Var where
+    collect = \case
+      WriteByte stream byte -> Set.union (collect stream) (collect byte)

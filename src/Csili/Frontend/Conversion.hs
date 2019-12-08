@@ -1,9 +1,10 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Csili.Frontend.Conversion
-( Error(..)
+( ConversionError(..)
 , convert
 ) where
 
-import Data.Bifunctor (first, second)
 import Data.Containers.ListUtils (nubOrd)
 import Data.List ((\\))
 import Data.Text (Text)
@@ -14,212 +15,117 @@ import qualified Data.Set as Set
 import Data.Validation (Validation(..), bindValidation)
 
 import Csili.Frontend.SyntaxTree (SyntaxTree, Term(..))
-import qualified Csili.Frontend.SyntaxTree as SyntaxTree (SyntaxTree(..), Pattern, Production)
-import Csili.Program (Program(Program), Transition, TransitionName(..), Interface, Token(..), Place(..), Pattern(..), Production(..), Var(..), Marking)
-import qualified Csili.Program as Program
-import Data.Maybe (mapMaybe)
+import qualified Csili.Frontend.SyntaxTree as SyntaxTree
+import Csili.Program hiding (effects)
 
-data Error
-    = ParseError Text
-    | ConsumingFromOutputPlace TransitionName Place
-    | ProducingOnInputPlace TransitionName Place
-    | ConsumingFromInexistentPlace TransitionName Place
-    | ProducingOnInexistentPlace TransitionName Place
-    | DuplicateInputPlace Place
+data ConversionError
+    = DuplicateInputPlace Place
     | DuplicateOutputPlace Place
-    | OverlappingInputAndOutput Place
     | DuplicateInternalPlace Place
-    | InternalPlaceInsideInterface Place
     | DuplicateToken Place
-    | TokenOnInexistentPlace Place
-    | TokenOnInterfacePlace Place
     | InvalidToken Place Term
     | DuplicateTransition TransitionName
     | DuplicatePattern TransitionName Place
-    | DuplicateVariableInPattern TransitionName Place Var
-    | DuplicateVariableInDifferentPatterns TransitionName Var (Set Place)
     | DuplicateProduction TransitionName Place
     | InvalidProduction TransitionName Place Term
-    | UnknownVariableInSubstitution TransitionName Place (Set Var)
-    deriving (Show, Eq)
+    | DuplicateEffect TransitionName Place
+    | EffectOnProductionPlace TransitionName Place
+    | InvalidEffect TransitionName Place Term
+    | InexistentEffect TransitionName Place Symbol
+    | ArityMismatchForEffect TransitionName Place Symbol Expectation Actual
+    deriving (Show, Eq, Ord)
 
-type Errors = [Error]
+type Expectation = Int
+type Actual = Int
 
-convert :: SyntaxTree -> Validation Errors Program
-convert tree = bindValidation (toProgram tree) validateProgram
-
-toProgram :: SyntaxTree -> Validation Errors Program
-toProgram tree = Program
-    <$> bindValidation (toInterface tree) validateInterface
+convert :: SyntaxTree -> Validation [ConversionError] Program
+convert tree = Program
+    <$> toInterface tree
     <*> toInternalPlaces tree
     <*> toInitialMarking tree
     <*> toTransitions tree
 
-validateProgram :: Program -> Validation Errors Program
-validateProgram program = toValidation $ concat
-    [ concatMap (validateTransition program) . Set.toList $ Program.transitions program
-    , validateInternalPlacesAgainstInterface (Program.interface program) (Program.internalPlaces program)
-    , validateInitialMarkingAgainstInterfacePlaces (Program.interface program) (Program.initialMarking program)
-    , validateInitialMarkingAgainstInternalPlaces (Program.interface program) (Program.internalPlaces program) (Program.initialMarking program)
-    ]
-  where
-    toValidation = \case
-        [] -> pure program
-        errors -> Failure errors
-
-validateTransition :: Program -> Transition -> Errors
-validateTransition program transition = concatMap ($ transition)
-    [ validateTransitionAgainstInterface (Program.interface program)
-    , validateTransitionAgainstPlaces (Program.places program)
-    , validateVariablesInPatterns
-    , validateVariablesInDifferentPatterns
-    , validateVariablesInProductions
-    ]
-
-validateTransitionAgainstInterface :: Interface -> Transition -> Errors
-validateTransitionAgainstInterface interface transition = concat
-    [ toErrors ConsumingFromOutputPlace . Set.intersection preset $ Program.output interface
-    , toErrors ProducingOnInputPlace . Set.intersection postset $ Program.input interface
-    ]
-  where
-    preset = Map.keysSet $ Program.patterns transition
-    postset = Map.keysSet $ Program.productions transition
-    toErrors mkError = map (mkError $ Program.name transition) . Set.toAscList
-
-validateInitialMarkingAgainstInterfacePlaces :: Interface -> Marking -> Errors
-validateInitialMarkingAgainstInterfacePlaces interface marking = concatMap (toErrors . Set.intersection markedPlaces)
-    [ Program.output interface
-    , Program.input interface
-    ]
-  where
-    toErrors = map TokenOnInterfacePlace . Set.toAscList
-    markedPlaces = Map.keysSet marking
-
-validateInitialMarkingAgainstInternalPlaces :: Interface -> Set Place -> Marking -> Errors
-validateInitialMarkingAgainstInternalPlaces interface internalPlaces marking = toErrors (Set.difference markedPlaces places)
-  where
-    toErrors = map TokenOnInexistentPlace . Set.toAscList
-    markedPlaces = Map.keysSet marking
-    places = Set.unions [internalPlaces, Program.input interface, Program.output interface]
-
-validateTransitionAgainstPlaces :: Set Place -> Transition -> Errors
-validateTransitionAgainstPlaces places transition = concat
-    [ toErrors ConsumingFromInexistentPlace $ Set.difference preset places
-    , toErrors ProducingOnInexistentPlace $ Set.difference postset places
-    ]
-  where
-    preset = Map.keysSet $ Program.patterns transition
-    postset = Map.keysSet $ Program.productions transition
-    toErrors mkError = map (mkError $ Program.name transition) . Set.toAscList
-
-validateVariablesInPatterns :: Transition -> Errors
-validateVariablesInPatterns transition = concatMap toError . Map.assocs $ Program.patterns transition
-  where
-    toError (place, pattern) = map (mkError place) . findDuplicates $ findVariables pattern
-    mkError = DuplicateVariableInPattern (Program.name transition)
-    findVariables = \case
-        Program.FunctionPattern _ patterns -> concatMap findVariables patterns
-        Program.IntPattern _ -> []
-        Program.VariablePattern var -> [var]
-        Program.WildcardPattern -> []
-
-validateVariablesInDifferentPatterns :: Transition -> Errors
-validateVariablesInDifferentPatterns transition = mapMaybe toError variables
-  where
-    patterns = Program.patterns transition
-    toError var
-        | Set.size containingPatterns == 1 = Nothing
-        | otherwise = Just $ mkError var containingPatterns
-      where
-        containingPatterns = Map.keysSet $ Map.filter (Set.member var . Program.collect) patterns
-    mkError var = DuplicateVariableInDifferentPatterns (Program.name transition) var
-    variables = Set.toAscList . Set.unions . map Program.collect $ Map.elems patterns
-
-validateVariablesInProductions :: Transition -> Errors
-validateVariablesInProductions transition = mapMaybe toError . Map.assocs $ Program.productions transition
-  where
-    definedVariables = Set.unions . map Program.collect . Map.elems $ Program.patterns transition
-    toError (place, production)
-        | Set.null unknownVariables = Nothing
-        | otherwise = Just $ UnknownVariableInSubstitution (Program.name transition) place unknownVariables
-      where
-        unknownVariables = Set.difference (Program.collect production) definedVariables
-
-validateInternalPlacesAgainstInterface :: Interface -> Set Place -> Errors
-validateInternalPlacesAgainstInterface interface internalPlaces = concatMap (map InternalPlaceInsideInterface . Set.toAscList)
-    [ Set.intersection internalPlaces $ Program.input interface
-    , Set.intersection internalPlaces $ Program.output interface
-    ]
-
-toInterface :: SyntaxTree -> Validation Errors Program.Interface
-toInterface tree = Program.Interface
+toInterface :: SyntaxTree -> Validation [ConversionError] Interface
+toInterface tree = Interface
     <$> (toPlaces DuplicateInputPlace . fst $ SyntaxTree.interface tree)
     <*> (toPlaces DuplicateOutputPlace . snd $ SyntaxTree.interface tree)
 
-validateInterface :: Program.Interface -> Validation Errors Program.Interface
-validateInterface interface
-    | Set.null overlappingPlaces = pure interface
-    | otherwise = Failure . map OverlappingInputAndOutput $ Set.toAscList overlappingPlaces
-  where
-    overlappingPlaces = Set.intersection (Program.input interface) (Program.output interface)
-
-toInternalPlaces :: SyntaxTree -> Validation Errors (Set Place)
+toInternalPlaces :: SyntaxTree -> Validation [ConversionError] (Set Place)
 toInternalPlaces = toPlaces DuplicateInternalPlace . SyntaxTree.internalPlaces
 
-toPlaces :: (Place -> Error) -> [Text] -> Validation Errors (Set Place)
+toPlaces :: (Place -> ConversionError) -> [Text] -> Validation [ConversionError] (Set Place)
 toPlaces mkError declarations = case findDuplicates declarations of
     [] -> pure . Set.fromList $ map Place declarations
     duplicates -> Failure $ map (mkError . Place) duplicates
 
-toInitialMarking :: SyntaxTree -> Validation Errors Program.Marking
+toInitialMarking :: SyntaxTree -> Validation [ConversionError] Marking
 toInitialMarking tree = case findDuplicates . map fst $ SyntaxTree.marking tree of
     [] -> Map.fromList <$> traverse convertPair (SyntaxTree.marking tree)
     duplicates -> Failure $ map (DuplicateToken . Place) duplicates
   where
     convertPair (place, term) = (,) <$> pure (Place place) <*> toToken (Place place) term
 
-toToken :: Place -> Term -> Validation Errors Token
+toToken :: Place -> Term -> Validation [ConversionError] Token
 toToken place = \case
-    Function symbol terms -> Program.FunctionToken (Program.Symbol symbol) <$> traverse (toToken place) terms
-    IntTerm n -> pure $ Program.IntToken n
+    Function symbol terms -> FunctionToken (Symbol symbol) <$> traverse (toToken place) terms
+    IntTerm n -> pure $ IntToken n
     term@_ -> Failure [InvalidToken place term]
 
-toTransitions :: SyntaxTree -> Validation Errors (Set Transition)
+toTransitions :: SyntaxTree -> Validation [ConversionError] (Set Transition)
 toTransitions tree = case findDuplicates . map fst $ SyntaxTree.transitions tree of
     [] -> Set.fromList <$> traverse toTransition (SyntaxTree.transitions tree)
     duplicates -> Failure $ map (DuplicateTransition . TransitionName) duplicates
 
-toTransition :: (Text, ([SyntaxTree.Pattern], [SyntaxTree.Production])) -> Validation Errors Transition
-toTransition (name, (patterns, productions)) = Program.Transition
+toTransition :: (Text, ([SyntaxTree.Pattern], [SyntaxTree.ConstructionRule], [SyntaxTree.Effect])) -> Validation [ConversionError] Transition
+toTransition (name, (patterns, constructionRules, effects)) = Transition
     <$> pure (TransitionName name)
-    <*> toPatterns (TransitionName name) patterns
-    <*> toProductions (TransitionName name) productions
+    <*> processTransitionBlock toPattern DuplicatePattern (TransitionName name) patterns
+    <*> toProductions name constructionRules effects
 
-toPatterns :: TransitionName -> [SyntaxTree.Pattern] -> Validation Errors (Map Place Pattern)
-toPatterns name patterns = case findDuplicates (map fst patterns) of
-    [] -> pure . Map.fromList $ map (second toPattern . first Place) patterns
-    duplicates -> Failure $ map (DuplicatePattern name . Place) duplicates
-
-toPattern :: Term -> Pattern
-toPattern = \case
-    Function symbol terms -> Program.FunctionPattern (Program.Symbol symbol) (map toPattern terms)
-    IntTerm n -> Program.IntPattern n
-    Variable var -> Program.VariablePattern (Program.Var var)
-    Wildcard -> Program.WildcardPattern
-
-toProductions :: TransitionName -> [SyntaxTree.Production] -> Validation Errors (Map Place Production)
-toProductions name productions = case findDuplicates (map fst productions) of
-    [] -> Map.fromList <$> traverse convertPair productions
-    duplicates -> Failure $ map (DuplicateProduction name . Place) duplicates
+toProductions :: Text -> [SyntaxTree.ConstructionRule] -> [SyntaxTree.Effect] -> Validation [ConversionError] (Map Place Production)
+toProductions name constructionRules effects = bindValidation separatedProductions (uncurry combine)
   where
-    convertPair (place, production) = (,) <$> pure (Place place) <*> toProduction name (Place place) production
+    separatedProductions = (,)
+        <$> processTransitionBlock toConstructionRule DuplicateProduction (TransitionName name) constructionRules
+        <*> processTransitionBlock toEffect DuplicateEffect (TransitionName name) effects
+    combine constructionMap effectMap = case Set.toAscList . Set.intersection (Map.keysSet constructionMap) $ Map.keysSet effectMap of
+        [] -> pure $ Map.union (Map.map Construct constructionMap) (Map.map Evaluate effectMap)
+        duplicates -> Failure $ map (EffectOnProductionPlace $ TransitionName name) duplicates
 
-toProduction :: TransitionName -> Place -> Term -> Validation Errors Production
-toProduction name place = \case
-    Function symbol terms -> Program.FunctionProduction (Program.Symbol symbol) <$> traverse (toProduction name place) terms
-    IntTerm n -> pure $ Program.IntProduction n
-    Variable var -> pure $ Program.Substitution (Program.Var var)
+processTransitionBlock
+    :: (TransitionName -> Place -> Term -> Validation [ConversionError] convertedTerm)
+    -> (TransitionName -> Place -> ConversionError)
+    -> TransitionName
+    -> [(Text, Term)]
+    -> Validation [ConversionError] (Map Place convertedTerm)
+processTransitionBlock convertTerm mkDuplicateError name mapping = case findDuplicates (map fst mapping) of
+      [] -> Map.fromList <$> traverse convertPair mapping
+      duplicates -> Failure $ map (mkDuplicateError name . Place) duplicates
+    where
+      convertPair (place, term) = (,) <$> pure (Place place) <*> convertTerm name (Place place) term
+
+toPattern :: TransitionName -> Place -> Term -> Validation [ConversionError] Pattern
+toPattern _name _place = \case
+    Function symbol terms -> FunctionPattern (Symbol symbol) <$> traverse (toPattern _name _place) terms
+    IntTerm n -> pure $ IntPattern n
+    Variable var -> pure $ VariablePattern (Var var)
+    Wildcard -> pure $ WildcardPattern
+
+toConstructionRule :: TransitionName -> Place -> Term -> Validation [ConversionError] ConstructionRule
+toConstructionRule name place = \case
+    Function symbol terms -> FunctionConstruction (Symbol symbol) <$> traverse (toConstructionRule name place) terms
+    IntTerm n -> pure $ IntConstruction n
+    Variable var -> pure $ Substitution (Var var)
     term@_ -> Failure [InvalidProduction name place term]
+
+toEffect :: TransitionName -> Place -> Term -> Validation [ConversionError] Effect
+toEffect name place = \case
+    Function effect arguments -> case effect of
+        "writeByte" -> case arguments of
+            [stream, byte] -> WriteByte <$> toConstructionRule name place stream <*> toConstructionRule name place byte
+            _ -> Failure [ArityMismatchForEffect name place (Symbol effect) 2 (length arguments)]
+        _ -> Failure [InexistentEffect name place (Symbol effect)]
+    term@_ -> Failure [InvalidEffect name place term]
 
 findDuplicates :: Ord a => [a] -> [a]
 findDuplicates elements = elements \\ nubOrd elements

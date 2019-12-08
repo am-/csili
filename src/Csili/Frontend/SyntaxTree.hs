@@ -3,8 +3,9 @@ module Csili.Frontend.SyntaxTree
 , Symbol
 , Var
 , Pattern
-, Production
-, Term (..)
+, ConstructionRule
+, Effect
+, Term(..)
 ) where
 
 import Data.Text (Text)
@@ -13,13 +14,14 @@ data SyntaxTree = SyntaxTree
     { interface :: ([Text], [Text])
     , internalPlaces :: [Text]
     , marking :: [(Text, Term)]
-    , transitions :: [(Text, ([Pattern], [Production]))]
+    , transitions :: [(Text, ([Pattern], [ConstructionRule], [Effect]))]
     }
 
 type Symbol = Text
 type Var = Text
 type Pattern = (Text, Term)
-type Production = (Text, Term)
+type ConstructionRule = (Text, Term)
+type Effect = (Text, Term)
 
 data Term
     = Function Symbol [Term]

@@ -86,8 +86,8 @@ substitution = testGroup "Substitution"
 
 identityWithoutVariables :: Assertion
 identityWithoutVariables = do
-    Just (IntToken 42) @=? substitute Map.empty (IntProduction 42)
-    Just (FunctionToken (Symbol "x") []) @=? substitute Map.empty (FunctionProduction (Symbol "x") [])
+    Just (IntToken 42) @=? substitute Map.empty (IntConstruction 42)
+    Just (FunctionToken (Symbol "x") []) @=? substitute Map.empty (FunctionConstruction (Symbol "x") [])
 
 completeSubstitution :: Assertion
 completeSubstitution = Just int @=? substitute binding (Substitution var)
@@ -106,13 +106,13 @@ insideSubstitution :: Assertion
 insideSubstitution = Just expectation @=? substitute binding production
   where
     expectation = FunctionToken (Symbol "cons") [int, FunctionToken (Symbol "nil") []]
-    production = FunctionProduction (Symbol "cons") [Substitution var, FunctionProduction (Symbol "nil") []]
+    production = FunctionConstruction (Symbol "cons") [Substitution var, FunctionConstruction (Symbol "nil") []]
     binding = Map.fromList [(var, int)]
     int = IntToken 42
     var = Var "V"
 
 missingVariableInsideSubstitution :: Assertion
-missingVariableInsideSubstitution = Nothing @=? substitute binding (FunctionProduction (Symbol "cons") [IntProduction 42, Substitution var])
+missingVariableInsideSubstitution = Nothing @=? substitute binding (FunctionConstruction (Symbol "cons") [IntConstruction 42, Substitution var])
   where
     var = Var "V"
     binding = Map.empty

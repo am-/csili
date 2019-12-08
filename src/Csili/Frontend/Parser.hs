@@ -68,13 +68,11 @@ placesBlock = unnamedBlock "PLACES" placeSet
 markingBlock :: Parser [(Text, Term)]
 markingBlock = unnamedBlock "MARKING" (placeMap term)
 
-transitionBlock :: Parser (Text, ([(Text, Term)], [(Text, Term)]))
-transitionBlock = namedBlock "TRANSITION" identifier blocks
-  where
-    blocks :: Parser ([(Text, Term)], [(Text, Term)])
-    blocks = (,)
-        <$> option [] (unnamedBlock "MATCH" (placeMap term))
-        <*> option [] (unnamedBlock "PRODUCE" (placeMap term))
+transitionBlock :: Parser (Text, ([(Text, Term)], [(Text, Term)], [(Text, Term)]))
+transitionBlock = namedBlock "TRANSITION" identifier $ (,,)
+    <$> option [] (unnamedBlock "MATCH" (placeMap term))
+    <*> option [] (unnamedBlock "PRODUCE" (placeMap term))
+    <*> option [] (unnamedBlock "EFFECTS" (placeMap term))
 
 placeSet :: Parser [Text]
 placeSet = many (fullClean identifier)

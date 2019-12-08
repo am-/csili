@@ -1,23 +1,38 @@
 module Csili.Frontend
-( loadCsl
+( Error(..)
+, ConversionError(..)
+, ValidationError(..)
+, loadCsl
 , parseCsl
-, Error(..)
 ) where
 
+import Data.Bifunctor (first)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Data.Attoparsec.Text
-import Data.Validation (toEither)
+import Data.Validation (Validation, bindValidation, toEither)
 
-import Csili.Frontend.Parser (file)
+import Csili.Frontend.Parser (SyntaxTree, file)
 import Csili.Program (Program)
 import Csili.Frontend.Conversion
+import Csili.Validation
+
+data Error
+    = DuringParsing Text
+    | DuringConversion ConversionError
+    | DuringValidation ValidationError
+    deriving (Show, Eq, Ord)
 
 loadCsl :: FilePath -> IO (Either [Error] Program)
 loadCsl = fmap parseCsl . T.readFile
 
 parseCsl :: Text -> Either [Error] Program
-parseCsl = either (Left . toParseError) (toEither . convert) . parseOnly file
+parseCsl = either (Left . toParseError) (toEither . toProgram) . parseOnly file
   where
-    toParseError = (:[]) . ParseError . T.pack
+    toParseError = (:[]) . DuringParsing . T.pack
+
+toProgram :: SyntaxTree -> Validation [Error] Program
+toProgram tree = bindValidation
+    (first (map DuringConversion) (convert tree))
+    (first (map DuringValidation) . validateProgram)

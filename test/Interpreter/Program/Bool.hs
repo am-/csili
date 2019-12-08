@@ -26,7 +26,7 @@ andProgram :: FilePath
 andProgram = "examples/bool/and.csl"
 
 falseAndFalse :: TestTree
-falseAndFalse = testProgram "false /\\ false" andProgram marking expectation
+falseAndFalse = testProgramAgainstMarking "false /\\ false" andProgram marking expectation
   where
     marking :: Marking
     marking = Map.fromList [(Place "input1", false), (Place "input2", false)]
@@ -35,7 +35,7 @@ falseAndFalse = testProgram "false /\\ false" andProgram marking expectation
     expectation = Map.fromList [(Place "output", false)]
 
 falseAndTrue :: TestTree
-falseAndTrue = testProgram "false /\\ true" andProgram marking expectation
+falseAndTrue = testProgramAgainstMarking "false /\\ true" andProgram marking expectation
   where
     marking :: Marking
     marking = Map.fromList [(Place "input1", false), (Place "input2", true)]
@@ -44,7 +44,7 @@ falseAndTrue = testProgram "false /\\ true" andProgram marking expectation
     expectation = Map.fromList [(Place "output", false)]
 
 trueAndFalse :: TestTree
-trueAndFalse = testProgram "true /\\ false" andProgram marking expectation
+trueAndFalse = testProgramAgainstMarking "true /\\ false" andProgram marking expectation
   where
     marking :: Marking
     marking = Map.fromList [(Place "input1", true), (Place "input2", false)]
@@ -53,7 +53,7 @@ trueAndFalse = testProgram "true /\\ false" andProgram marking expectation
     expectation = Map.fromList [(Place "output", false)]
 
 trueAndTrue :: TestTree
-trueAndTrue = testProgram "true /\\ true" andProgram marking expectation
+trueAndTrue = testProgramAgainstMarking "true /\\ true" andProgram marking expectation
   where
     marking :: Marking
     marking = Map.fromList [(Place "input1", true), (Place "input2", true)]
@@ -74,7 +74,7 @@ orProgram :: FilePath
 orProgram = "examples/bool/or.csl"
 
 falseOrFalse :: TestTree
-falseOrFalse = testProgram "false \\/ false" orProgram marking expectation
+falseOrFalse = testProgramAgainstMarking "false \\/ false" orProgram marking expectation
   where
     marking :: Marking
     marking = Map.fromList [(Place "input1", false), (Place "input2", false)]
@@ -83,7 +83,7 @@ falseOrFalse = testProgram "false \\/ false" orProgram marking expectation
     expectation = Map.fromList [(Place "output", false)]
 
 falseOrTrue :: TestTree
-falseOrTrue = testProgram "false \\/ true" orProgram marking expectation
+falseOrTrue = testProgramAgainstMarking "false \\/ true" orProgram marking expectation
   where
     marking :: Marking
     marking = Map.fromList [(Place "input1", false), (Place "input2", true)]
@@ -92,7 +92,7 @@ falseOrTrue = testProgram "false \\/ true" orProgram marking expectation
     expectation = Map.fromList [(Place "output", true)]
 
 trueOrFalse :: TestTree
-trueOrFalse = testProgram "true \\/ false" orProgram marking expectation
+trueOrFalse = testProgramAgainstMarking "true \\/ false" orProgram marking expectation
   where
     marking :: Marking
     marking = Map.fromList [(Place "input1", true), (Place "input2", false)]
@@ -101,7 +101,7 @@ trueOrFalse = testProgram "true \\/ false" orProgram marking expectation
     expectation = Map.fromList [(Place "output", true)]
 
 trueOrTrue :: TestTree
-trueOrTrue = testProgram "true \\/ true" orProgram marking expectation
+trueOrTrue = testProgramAgainstMarking "true \\/ true" orProgram marking expectation
   where
     marking :: Marking
     marking = Map.fromList [(Place "input1", true), (Place "input2", true)]
@@ -120,7 +120,7 @@ notProgram :: FilePath
 notProgram = "examples/bool/not.csl"
 
 notFalse :: TestTree
-notFalse = testProgram "!false" notProgram marking expectation
+notFalse = testProgramAgainstMarking "!false" notProgram marking expectation
   where
     marking :: Marking
     marking = Map.fromList [(Place "input", false)]
@@ -129,7 +129,7 @@ notFalse = testProgram "!false" notProgram marking expectation
     expectation = Map.fromList [(Place "output", true)]
 
 notTrue :: TestTree
-notTrue = testProgram "!true" notProgram marking expectation
+notTrue = testProgramAgainstMarking "!true" notProgram marking expectation
   where
     marking :: Marking
     marking = Map.fromList [(Place "input", true)]

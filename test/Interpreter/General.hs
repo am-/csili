@@ -21,19 +21,19 @@ reverseProgram :: FilePath
 reverseProgram = "examples/list/reverse.csl"
 
 runRestrictsInputToInterface :: TestTree
-runRestrictsInputToInterface = testProgram "Input Restriction to Interface" reverseProgram marking expectation
+runRestrictsInputToInterface = testProgramAgainstMarking "Input Restriction to Interface" reverseProgram marking expectation
   where
     marking = Map.fromList [(Place "accumulator", nil), (Place "input", nil)]
     expectation = Map.fromList [(Place "output", nil)]
 
 runRestrictsOutputToInterface :: TestTree
-runRestrictsOutputToInterface = testProgram "Output Restriction to Interface" reverseProgram marking expectation
+runRestrictsOutputToInterface = testProgramAgainstMarking "Output Restriction to Interface" reverseProgram marking expectation
   where
     marking = Map.fromList [(Place "input", nil)]
     expectation = Map.fromList [(Place "output", nil)]
 
 evaluateIgnoresInterface :: TestTree
-evaluateIgnoresInterface = testCase "Evaluate Ignores Interface" $ expectation @=? evaluate program
+evaluateIgnoresInterface = testCase "Evaluate Ignores Interface" $ evaluate program >>= (expectation @=?) 
   where
     program = empty
         { initialMarking = Map.fromList [(Place "input", IntToken 1), (Place "store", IntToken 0)]
@@ -41,12 +41,13 @@ evaluateIgnoresInterface = testCase "Evaluate Ignores Interface" $ expectation @
             { input = Set.fromList [Place "input"]
             , output = Set.fromList [Place "output"]
             }
-        , transitions = Set.singleton (Transition (TransitionName "store") storePattern storeProduction)
+        , transitions = Set.singleton transition
         }
-    storePattern = Map.fromList [(Place "input", VariablePattern (Var "New")), (Place "store", VariablePattern (Var "Old"))]
-    storeProduction = Map.fromList [(Place "output", Substitution (Var "Old")), (Place "store", Substitution (Var "New"))]
+    transition = (mkTransition "store")
+        { patterns = Map.fromList [(Place "input", VariablePattern (Var "New")), (Place "store", VariablePattern (Var "Old"))]
+        , productions = Map.fromList [(Place "output", Construct $ Substitution (Var "Old")), (Place "store", Construct $ Substitution (Var "New"))]
+        }
     expectation = Map.fromList [(Place "output", IntToken 0), (Place "store", IntToken 1)]
 
 nil :: Token
 nil = FunctionToken (Symbol "nil") []
-

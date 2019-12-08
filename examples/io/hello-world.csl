@@ -1,0 +1,57 @@
+INTERFACE {
+  INPUT {
+    stream
+  }
+  OUTPUT {
+    streamReleased
+  }
+}
+
+PLACES {
+  streamAcquired
+  word
+  effect
+}
+
+MARKING {
+  word: cons(0x48, cons(0x65, cons(0x6C, cons(0x6C, cons(0x6F, cons(0x20, cons(0x57, cons(0x6F, cons(0x72, cons(0x6C, cons(0x64, cons(0x21, nil))))))))))))
+}
+
+TRANSITION start {
+  MATCH {
+    stream: Stream
+  }
+  PRODUCE {
+    streamAcquired: Stream
+  }
+}
+
+TRANSITION write {
+  MATCH {
+    streamAcquired: Stream
+    word: cons(Byte, Bytes)
+  }
+  PRODUCE {
+    streamAcquired: Stream
+    word: Bytes
+  }
+  EFFECTS {
+    effect: writeByte(Stream, Byte)
+  }
+}
+
+TRANSITION finish {
+  MATCH {
+    word: nil
+    streamAcquired: Stream
+  }
+  PRODUCE {
+    streamReleased: Stream
+  }
+}
+
+TRANSITION continue {
+  MATCH {
+    effect: _
+  }
+}

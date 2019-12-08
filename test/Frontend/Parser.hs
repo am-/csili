@@ -144,32 +144,45 @@ transitionBlocks = testGroup "Transition"
     , testCase "Infinite Producer" infiniteProducer
     , testCase "Unconditional Eater" unconditionalEater
     , testCase "Common" commonTransition
+    , testCase "Writing Transition" writingTransition
     ]
 
 isolatedTransition :: Assertion
 isolatedTransition = Right expectation @=? parseOnly transitionBlock "TRANSITION doNothing {}"
   where
-    expectation = ("doNothing", (match, produce))
+    expectation = ("doNothing", (match, produce, effects))
     match = []
     produce = []
+    effects = []
 
 infiniteProducer :: Assertion
-infiniteProducer = Right expectation @=? parseOnly transitionBlock "TRANSITION InfiniteProducer { PRODUCE { output: true } }"
+infiniteProducer = Right expectation @=? parseOnly transitionBlock "TRANSITION produce { PRODUCE { output: true } }"
   where
-    expectation = ("InfiniteProducer", (match, produce))
+    expectation = ("produce", (match, produce, effects))
     match = []
     produce = [("output", Function "true" [])]
+    effects = []
 
 unconditionalEater :: Assertion
-unconditionalEater = Right expectation @=? parseOnly transitionBlock "TRANSITION UnconditionalEater { MATCH { input: _ } }"
+unconditionalEater = Right expectation @=? parseOnly transitionBlock "TRANSITION eat { MATCH { input: _ } }"
   where
-    expectation = ("UnconditionalEater", (match, produce))
+    expectation = ("eat", (match, produce, effects))
     match = [("input", Wildcard)]
     produce = []
+    effects = []
 
 commonTransition :: Assertion
 commonTransition = Right expectation @=? parseOnly transitionBlock "TRANSITION firstTrue { MATCH { input1: true input2: B } PRODUCE { output: B } }"
   where
-    expectation = ("firstTrue", (match, produce))
+    expectation = ("firstTrue", (match, produce, effects))
     match = [("input1", Function "true" []), ("input2", Variable "B")]
     produce = [("output", Variable "B")]
+    effects = []
+
+writingTransition :: Assertion
+writingTransition = Right expectation @=? parseOnly transitionBlock "TRANSITION write { MATCH { input: B } EFFECTS { output: writeByte(B) } }"
+  where
+    expectation = ("write", (match, produce, effects))
+    match = [("input", Variable "B")]
+    produce = []
+    effects = [("output", Function "writeByte" [Variable "B"])]
