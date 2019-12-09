@@ -8,13 +8,13 @@ module Csili.Interpreter
 , substitute
 ) where
 
-import Data.Char (chr)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Data.Maybe (isJust)
 import System.IO (hPutChar)
 
+import Csili.Interpreter.Word
 import Csili.Program
 
 run :: Program -> Marking -> IO Marking
@@ -62,9 +62,11 @@ produce binding = \case
     Construct rule -> return $ substitute binding rule
     Evaluate effect -> case effect of
         WriteByte stream byte -> case (,) <$> substitute binding stream <*> substitute binding byte of
-            Just (Resource handle, IntToken n) -> do
-                hPutChar handle (chr $ n `mod` 256)
-                return . Just $ FunctionToken (Symbol "signal") []
+            Just (Resource handle, word8) -> case word8ToChar word8 of
+                Nothing -> return Nothing
+                Just char -> do
+                    hPutChar handle char
+                    return . Just $ FunctionToken (Symbol "signal") []
             _ -> return Nothing
 
 match :: Pattern -> Token -> Maybe (Map Var Token)

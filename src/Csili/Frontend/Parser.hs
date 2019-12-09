@@ -33,7 +33,7 @@ syntaxTree = SyntaxTree
 --------------------------------------------------------------------------------
 
 term :: Parser Term
-term = fullClean (variable <|> function <|> intTerm <|> wildcard)
+term = fullClean (variable <|> function <|> word8 <|> intTerm <|> wildcard)
 
 variable :: Parser Term
 variable = Variable <$> upperCaseIdentifier
@@ -42,7 +42,38 @@ function :: Parser Term
 function = uncurry Function <$> functionTerm (lowerCaseIdentifier) term
 
 intTerm :: Parser Term
-intTerm = IntTerm <$> signed (choice [char '0' *> char 'x' *> hexadecimal, decimal])
+intTerm = IntTerm <$> signed decimal
+
+word8 :: Parser Term
+word8 = char '0' *> char 'x' *> (mkWord8 <$> hexDigitInBits <*> hexDigitInBits)
+  where
+    mkWord8 bits1 bits0 = Function "word8" $ concat [bits1, bits0]
+
+hexDigitInBits :: Parser [Term]
+hexDigitInBits = flip satisfyWith (not . null) $ \case
+    '0' -> [zero, zero, zero, zero]
+    '1' -> [zero, zero, zero, one]
+    '2' -> [zero, zero, one, zero]
+    '3' -> [zero, zero, one, one]
+    '4' -> [zero, one, zero, zero]
+    '5' -> [zero, one, zero, one]
+    '6' -> [zero, one, one, zero]
+    '7' -> [zero, one, one, one]
+    '8' -> [one, zero, zero, zero]
+    '9' -> [one, zero, zero, one]
+    'A' -> [one, zero, one, zero]
+    'a' -> [one, zero, one, zero]
+    'B' -> [one, zero, one, one]
+    'b' -> [one, zero, one, one]
+    'C' -> [one, one, zero, zero]
+    'c' -> [one, one, zero, zero]
+    'D' -> [one, one, zero, one]
+    'd' -> [one, one, zero, one]
+    'E' -> [one, one, one, zero]
+    'e' -> [one, one, one, zero]
+    'F' -> [one, one, one, one]
+    'f' -> [one, one, one, one]
+    _ -> []
 
 wildcard :: Parser Term
 wildcard = const Wildcard <$> (char '_' *> takeWhile isAlphaNum)
@@ -127,3 +158,13 @@ rightClean p = p <* clean
 
 fullClean :: Parser a -> Parser a
 fullClean = leftClean . rightClean
+
+--------------------------------------------------------------------------------
+-- Built-in Terms
+--------------------------------------------------------------------------------
+
+zero :: Term
+zero = Function "zero" []
+
+one :: Term
+one = Function "one" []

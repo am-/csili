@@ -1,7 +1,7 @@
 module Frontend.Parser where
 
 import Data.Text ()
-import Data.Attoparsec.Text (parseOnly)
+import Data.Attoparsec.Text (parseOnly, endOfInput)
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -34,16 +34,20 @@ terms = testGroup "Terms"
       , testCase "Positive (signed)" $ Right (IntTerm 23) @=? parseOnly term "+23"
       , testCase "Negative" $ Right (IntTerm (-273)) @=? parseOnly term "-273"
       ]
-    , testGroup "Hexadecimals"
-      [ testCase "Zero" $ Right (IntTerm 0) @=? parseOnly term "0x0"
-      , testCase "Zero (positive)" $ Right (IntTerm 0) @=? parseOnly term "+0x0"
-      , testCase "Zero (negative)" $ Right (IntTerm 0) @=? parseOnly term "-0x0"
-      , testCase "Positive" $ Right (IntTerm 42) @=? parseOnly term "0x2A"
-      , testCase "Positive (signed)" $ Right (IntTerm 23) @=? parseOnly term "+0x17"
-      , testCase "Negative" $ Right (IntTerm (-273)) @=? parseOnly term "-0x0111"
-      , testCase "Uppercase and Lowercase Equivalence" $ parseOnly term "0xAB" @=? parseOnly term "0xab"
+    , testGroup "word8"
+      [ testCase "4 Bit (too short)" $ Left "endOfInput" @=? parseOnly (term <* endOfInput) "0xA"
+      , testCase "8 bit (minimum bound)" $ Right (Function "word8" [zero, zero, zero, zero, zero, zero, zero, zero]) @=? parseOnly (term <* endOfInput) "0x00"
+      , testCase "8 bit (in between)" $ Right (Function "word8" [zero, zero, one, zero, one, zero, one, zero]) @=? parseOnly (term <* endOfInput) "0x2A"
+      , testCase "8 bit (maximum bound)" $ Right (Function "word8" [one, one, one, one, one, one, one, one]) @=? parseOnly (term <* endOfInput) "0xFF"
+      , testCase "8 bit (signed, positive)" $ Left "endOfInput" @=? parseOnly (term <* endOfInput) "+0x17"
+      , testCase "8 bit (signed, negative)" $ Left "endOfInput" @=? parseOnly (term <* endOfInput) "-0x17"
+      , testCase "12 Bit (too long)" $ Left "endOfInput" @=? parseOnly (term <* endOfInput) "0xABC"
+      , testCase "Uppercase and Lowercase Equivalence" $ parseOnly (term <* endOfInput) "0xAB" @=? parseOnly (term <* endOfInput) "0xab"
       ]
     ]
+  where
+    zero = Function "zero" []
+    one = Function "one" []
 
 singleLetterVariable :: Assertion
 singleLetterVariable = Right (Variable "A") @=? parseOnly term "A"
