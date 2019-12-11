@@ -24,6 +24,8 @@ module Csili.Program
 , ConstructionRule(..)
 , Effect(..)
 , Token(..)
+, zero
+, one
 , Var(..)
 , Symbol(..)
 
@@ -126,6 +128,12 @@ data Token
     | Resource Handle
     deriving (Show, Eq)
 
+zero :: Token
+zero = FunctionToken (Symbol "zero") []
+
+one :: Token
+one = FunctionToken (Symbol "one") []
+
 data Pattern
     = FunctionPattern Symbol [Pattern]
     | IntPattern Int
@@ -156,7 +164,8 @@ data ConstructionRule
     deriving (Show, Eq, Ord)
 
 data Effect
-    = WriteByte ConstructionRule ConstructionRule
+    = WriteWord8 ConstructionRule ConstructionRule
+    | ReadWord8 ConstructionRule
     deriving (Show, Eq, Ord)
 
 type Marking = Map Place Token
@@ -215,7 +224,8 @@ instance Collectible Production Symbol where
 
 instance Collectible Effect Symbol where
     collect = \case
-        WriteByte stream byte -> Set.union (collect stream) (collect byte)
+        WriteWord8 stream word -> Set.union (collect stream) (collect word)
+        ReadWord8 stream -> collect stream
 
 instance Collectible ConstructionRule Symbol where
     collect = \case
@@ -246,4 +256,5 @@ instance Collectible ConstructionRule Var where
 
 instance Collectible Effect Var where
     collect = \case
-      WriteByte stream byte -> Set.union (collect stream) (collect byte)
+      WriteWord8 stream word -> Set.union (collect stream) (collect word)
+      ReadWord8 stream -> collect stream

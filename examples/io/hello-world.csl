@@ -36,7 +36,7 @@ TRANSITION write {
     word: Bytes
   }
   EFFECTS {
-    effect: writeByte(Stream, Byte)
+    effect: writeWord8(Stream, Byte)
   }
 }
 

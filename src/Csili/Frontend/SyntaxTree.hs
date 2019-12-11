@@ -6,6 +6,8 @@ module Csili.Frontend.SyntaxTree
 , ConstructionRule
 , Effect
 , Term(..)
+, zero
+, one
 ) where
 
 import Data.Text (Text)
@@ -29,3 +31,13 @@ data Term
     | Variable Var
     | Wildcard
     deriving (Show, Eq, Ord)
+
+--------------------------------------------------------------------------------
+-- Built-in Terms
+--------------------------------------------------------------------------------
+
+zero :: Term
+zero = Function "zero" []
+
+one :: Term
+one = Function "one" []

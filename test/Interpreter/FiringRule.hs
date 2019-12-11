@@ -50,7 +50,7 @@ markedEffectPlace = do
     marking = Map.fromList [(Place "p1", FunctionToken (Symbol "nil") []), (Place "p2", FunctionToken (Symbol "nil") [])]
     t = (mkTransition "t")
         { patterns = Map.fromList [(Place "p1", VariablePattern (Var "S"))]
-        , productions = Map.fromList [(Place "p2", Evaluate $ WriteByte (Substitution (Var "S")) (IntConstruction 32))]
+        , productions = Map.fromList [(Place "p2", Evaluate $ WriteWord8 (Substitution (Var "S")) (IntConstruction 32))]
         }
 
 noPreset :: Assertion

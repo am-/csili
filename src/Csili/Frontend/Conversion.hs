@@ -121,9 +121,12 @@ toConstructionRule name place = \case
 toEffect :: TransitionName -> Place -> Term -> Validation [ConversionError] Effect
 toEffect name place = \case
     Function effect arguments -> case effect of
-        "writeByte" -> case arguments of
-            [stream, byte] -> WriteByte <$> toConstructionRule name place stream <*> toConstructionRule name place byte
+        "writeWord8" -> case arguments of
+            [stream, word] -> WriteWord8 <$> toConstructionRule name place stream <*> toConstructionRule name place word
             _ -> Failure [ArityMismatchForEffect name place (Symbol effect) 2 (length arguments)]
+        "readWord8" -> case arguments of
+            [stream] -> ReadWord8 <$> toConstructionRule name place stream
+            _ -> Failure [ArityMismatchForEffect name place (Symbol effect) 1 (length arguments)]
         _ -> Failure [InexistentEffect name place (Symbol effect)]
     term@_ -> Failure [InvalidEffect name place term]
 

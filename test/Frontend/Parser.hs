@@ -6,6 +6,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 import Csili.Frontend.Parser
+import Csili.Frontend.SyntaxTree
 
 tests :: TestTree
 tests = testGroup "Parser"
@@ -45,9 +46,6 @@ terms = testGroup "Terms"
       , testCase "Uppercase and Lowercase Equivalence" $ parseOnly (term <* endOfInput) "0xAB" @=? parseOnly (term <* endOfInput) "0xab"
       ]
     ]
-  where
-    zero = Function "zero" []
-    one = Function "one" []
 
 singleLetterVariable :: Assertion
 singleLetterVariable = Right (Variable "A") @=? parseOnly term "A"

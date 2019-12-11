@@ -1,0 +1,270 @@
+INTERFACE {
+  INPUT {
+    input
+    output
+  }
+  OUTPUT {
+    inputReleased
+    outputReleased
+  }
+}
+
+PLACES {
+  inputAcquired
+  outputAcquired
+  action
+  reversedWord
+  character
+  processedCharacter
+  bit1Comparison
+  bit2Comparison
+  bit3Comparison
+  bit4Comparison
+  bit5Comparison
+  bit6Comparison
+  bit7Comparison
+  bit8Comparison
+  written
+}
+
+TRANSITION startReading {
+  MATCH {
+    input: InputStream
+  }
+  PRODUCE {
+    inputAcquired: InputStream
+    reversedWord: nil
+    action: read
+  }
+}
+
+TRANSITION read {
+  MATCH {
+    inputAcquired: Stream
+    action: read
+  }
+  PRODUCE {
+    inputAcquired: Stream
+  }
+  EFFECTS {
+    character: readWord8(Stream)
+  }
+}
+
+TRANSITION startComparisonAgainstNewline {
+  MATCH {
+    character: Character
+  }
+  PRODUCE {
+    bit1Comparison: Character
+  }
+}
+
+TRANSITION compareBit1AgainstZero {
+  MATCH {
+    bit1Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, zero)
+  }
+  PRODUCE {
+    bit2Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, zero)
+  }
+}
+
+TRANSITION compareBit1AgainstOne {
+  MATCH {
+    bit1Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, one)
+  }
+  PRODUCE {
+    processedCharacter: nonNewline(word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, one))
+  }
+}
+
+TRANSITION compareBit2AgainstZero {
+  MATCH {
+    bit2Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, zero, Bit1)
+  }
+  PRODUCE {
+    processedCharacter: nonNewline(word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, zero, Bit1))
+  }
+}
+
+TRANSITION compareBit2AgainstOne {
+  MATCH {
+    bit2Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, one, Bit1)
+  }
+  PRODUCE {
+    bit3Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, one, Bit1)
+  }
+}
+
+TRANSITION compareBit3AgainstZero {
+  MATCH {
+    bit3Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, zero, Bit2, Bit1)
+  }
+  PRODUCE {
+    bit4Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, zero, Bit2, Bit1)
+  }
+}
+
+TRANSITION compareBit3AgainstOne {
+  MATCH {
+    bit3Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, one, Bit2, Bit1)
+  }
+  PRODUCE {
+    processedCharacter: nonNewline(word8(Bit8, Bit7, Bit6, Bit5, Bit4, one, Bit2, Bit1))
+  }
+}
+
+TRANSITION compareBit4AgainstZero {
+  MATCH {
+    bit4Comparison: word8(Bit8, Bit7, Bit6, Bit5, zero, Bit3, Bit2, Bit1)
+  }
+  PRODUCE {
+    processedCharacter: nonNewline(word8(Bit8, Bit7, Bit6, Bit5, zero, Bit3, Bit2, Bit1))
+  }
+}
+
+TRANSITION compareBit4AgainstOne {
+  MATCH {
+    bit4Comparison: word8(Bit8, Bit7, Bit6, Bit5, one, Bit3, Bit2, Bit1)
+  }
+  PRODUCE {
+    bit5Comparison: word8(Bit8, Bit7, Bit6, Bit5, one, Bit3, Bit2, Bit1)
+  }
+}
+
+TRANSITION compareBit5AgainstZero {
+  MATCH {
+    bit5Comparison: word8(Bit8, Bit7, Bit6, zero, Bit4, Bit3, Bit2, Bit1)
+  }
+  PRODUCE {
+    bit6Comparison: word8(Bit8, Bit7, Bit6, zero, Bit4, Bit3, Bit2, Bit1)
+  }
+}
+
+TRANSITION compareBit5AgainstOne {
+  MATCH {
+    bit5Comparison: word8(Bit8, Bit7, Bit6, one, Bit4, Bit3, Bit2, Bit1)
+  }
+  PRODUCE {
+    processedCharacter: nonNewline(word8(Bit8, Bit7, Bit6, one, Bit4, Bit3, Bit2, Bit1))
+  }
+}
+
+TRANSITION compareBit6AgainstZero {
+  MATCH {
+    bit6Comparison: word8(Bit8, Bit7, zero, Bit5, Bit4, Bit3, Bit2, Bit1)
+  }
+  PRODUCE {
+    bit7Comparison: word8(Bit8, Bit7, zero, Bit5, Bit4, Bit3, Bit2, Bit1)
+  }
+}
+
+TRANSITION compareBit6AgainstOne {
+  MATCH {
+    bit6Comparison: word8(Bit8, Bit7, one, Bit5, Bit4, Bit3, Bit2, Bit1)
+  }
+  PRODUCE {
+    processedCharacter: nonNewline(word8(Bit8, Bit7, one, Bit5, Bit4, Bit3, Bit2, Bit1))
+  }
+}
+
+TRANSITION compareBit7AgainstZero {
+  MATCH {
+    bit7Comparison: word8(Bit8, zero, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1)
+  }
+  PRODUCE {
+    bit8Comparison: word8(Bit8, zero, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1)
+  }
+}
+
+TRANSITION compareBit7AgainstOne {
+  MATCH {
+    bit7Comparison: word8(Bit8, one, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1)
+  }
+  PRODUCE {
+    processedCharacter: nonNewline(word8(Bit8, one, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1))
+  }
+}
+
+TRANSITION compareBit8AgainstZero {
+  MATCH {
+    bit8Comparison: word8(zero, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1)
+  }
+  PRODUCE {
+    processedCharacter: newline
+  }
+}
+
+TRANSITION compareBit8AgainstOne {
+  MATCH {
+    bit8Comparison: word8(one, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1)
+  }
+  PRODUCE {
+    processedCharacter: nonNewline(word8(one, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1))
+  }
+}
+
+TRANSITION continueReading {
+  MATCH {
+    processedCharacter: nonNewline(Character)
+    reversedWord: Word
+  }
+  PRODUCE {
+    reversedWord: cons(Character, Word)
+    action: read
+  }
+}
+
+TRANSITION stopReading {
+  MATCH {
+    processedCharacter: newline
+  }
+  PRODUCE {
+    action: write
+  }
+}
+
+TRANSITION startWriting {
+  MATCH {
+    action: write
+    inputAcquired: InputStream
+    output: OutputStream
+  }
+  PRODUCE {
+    inputReleased: InputStream
+    outputAcquired: OutputStream
+  }
+}
+
+TRANSITION write {
+  MATCH {
+    outputAcquired: Stream
+    reversedWord: cons(Character, Word)
+  }
+  PRODUCE {
+    outputAcquired: Stream
+    reversedWord: Word
+  }
+  EFFECTS {
+    written: writeWord8(Stream, Character)
+  }
+}
+
+TRANSITION finishWriting {
+  MATCH {
+    outputAcquired: Stream
+    reversedWord: nil
+  }
+  PRODUCE {
+    outputReleased: Stream
+  }
+  EFFECTS {
+    written: writeWord8(Stream, 0x0A)
+  }
+}
+
+TRANSITION unblockWriting {
+  MATCH {
+    written: _
+  }
+}

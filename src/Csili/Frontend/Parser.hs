@@ -158,13 +158,3 @@ rightClean p = p <* clean
 
 fullClean :: Parser a -> Parser a
 fullClean = leftClean . rightClean
-
---------------------------------------------------------------------------------
--- Built-in Terms
---------------------------------------------------------------------------------
-
-zero :: Term
-zero = Function "zero" []
-
-one :: Term
-one = Function "one" []

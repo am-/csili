@@ -336,7 +336,7 @@ writeByteWithVariable = Right expected @=? transitions <$> parseCsl "PLACES { s 
     expected = Set.singleton t
     t = (mkTransition "t")
         { patterns = Map.fromList [(Place "p", VariablePattern (Var "V")), (Place "s", VariablePattern (Var "S"))]
-        , productions = Map.fromList [(Place "p", Evaluate $ WriteByte (Substitution $ Var "S") (Substitution $ Var "V"))]
+        , productions = Map.fromList [(Place "p", Evaluate $ WriteWord8 (Substitution $ Var "S") (Substitution $ Var "V"))]
         }
 
 writeByteWithTooFewArguments :: Assertion
