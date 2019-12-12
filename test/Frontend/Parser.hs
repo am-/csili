@@ -182,9 +182,9 @@ commonTransition = Right expectation @=? parseOnly transitionBlock "TRANSITION f
     effects = []
 
 writingTransition :: Assertion
-writingTransition = Right expectation @=? parseOnly transitionBlock "TRANSITION write { MATCH { input: B } EFFECTS { output: writeByte(B) } }"
+writingTransition = Right expectation @=? parseOnly transitionBlock "TRANSITION write { MATCH { input: B } EFFECTS { output: writeWord8(B) } }"
   where
     expectation = ("write", (match, produce, effects))
     match = [("input", Variable "B")]
     produce = []
-    effects = [("output", Function "writeByte" [Variable "B"])]
+    effects = [("output", Function "writeWord8" [Variable "B"])]

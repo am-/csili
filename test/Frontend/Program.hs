@@ -296,32 +296,32 @@ effectsTests = testGroup "Effects"
     , testCase "Effect on Inexistent Place" effectOnInexistentPlace
     , testCase "Effect on Production Place" effectOnProductionPlace
     , testCase "Inexistent Effect" inexistentEffect
-    , testCase "writeByte (with variable)" writeByteWithVariable
-    , testCase "writeByte (too few arguments)" writeByteWithTooFewArguments
-    , testCase "writeByte (too many arguments)" writeByteWithTooManyArguments
-    , testCase "writeByte (invalid argument)" writeByteWithInvalidArgument
+    , testCase "writeWord8 (with variable)" writeWord8WithVariable
+    , testCase "writeWord8 (too few arguments)" writeWord8WithTooFewArguments
+    , testCase "writeWord8 (too many arguments)" writeWord8WithTooManyArguments
+    , testCase "writeWord8 (invalid argument)" writeWord8WithInvalidArgument
     , testCase "Int" intEffect
     , testCase "Wildcard" wildcardEffect
     , testCase "Variable" substitutionEffect
     ]
 
 duplicateEffect :: Assertion
-duplicateEffect = Left expected @=? parseCsl "PLACES { p } TRANSITION t { EFFECTS { p: writeByte(4) p: writeByte(2) } }"
+duplicateEffect = Left expected @=? parseCsl "PLACES { p } TRANSITION t { EFFECTS { p: writeWord8(4) p: writeWord8(2) } }"
   where
     expected = map DuringConversion [DuplicateEffect (TransitionName "t") (Place "p")]
 
 effectOnInputPlace :: Assertion
-effectOnInputPlace = Left expected @=? parseCsl "INTERFACE { INPUT { s p } } TRANSITION t { MATCH { s: S } EFFECTS { p: writeByte(S, 42) } }"
+effectOnInputPlace = Left expected @=? parseCsl "INTERFACE { INPUT { s p } } TRANSITION t { MATCH { s: S } EFFECTS { p: writeWord8(S, 42) } }"
   where
     expected = map DuringValidation [EffectOnInputPlace (TransitionName "t") (Place "p")]
 
 effectOnInexistentPlace :: Assertion
-effectOnInexistentPlace = Left expected @=? parseCsl "PLACES { s } TRANSITION t { MATCH { s: S } EFFECTS { p: writeByte(S, 42) } }"
+effectOnInexistentPlace = Left expected @=? parseCsl "PLACES { s } TRANSITION t { MATCH { s: S } EFFECTS { p: writeWord8(S, 42) } }"
   where
     expected = map DuringValidation [EffectOnInexistentPlace (TransitionName "t") (Place "p")]
 
 effectOnProductionPlace :: Assertion
-effectOnProductionPlace = Left expected @=? transitions <$> parseCsl "PLACES { p s } TRANSITION t { MATCH { s: S } PRODUCE { p: 42 } EFFECTS { p: writeByte(S, 42) } }"
+effectOnProductionPlace = Left expected @=? transitions <$> parseCsl "PLACES { p s } TRANSITION t { MATCH { s: S } PRODUCE { p: 42 } EFFECTS { p: writeWord8(S, 42) } }"
   where
     expected = map DuringConversion [EffectOnProductionPlace (TransitionName "t") (Place "p")]
 
@@ -330,8 +330,8 @@ inexistentEffect = Left expected @=? transitions <$> parseCsl "PLACES { p } TRAN
   where
     expected = map DuringConversion [InexistentEffect (TransitionName "t") (Place "p") (Symbol "launchMissiles")]
 
-writeByteWithVariable :: Assertion
-writeByteWithVariable = Right expected @=? transitions <$> parseCsl "PLACES { s p } TRANSITION t { MATCH { s: S p: V } EFFECTS { p: writeByte(S, V) } }"
+writeWord8WithVariable :: Assertion
+writeWord8WithVariable = Right expected @=? transitions <$> parseCsl "PLACES { s p } TRANSITION t { MATCH { s: S p: V } EFFECTS { p: writeWord8(S, V) } }"
   where
     expected = Set.singleton t
     t = (mkTransition "t")
@@ -339,18 +339,18 @@ writeByteWithVariable = Right expected @=? transitions <$> parseCsl "PLACES { s 
         , productions = Map.fromList [(Place "p", Evaluate $ WriteWord8 (Substitution $ Var "S") (Substitution $ Var "V"))]
         }
 
-writeByteWithTooFewArguments :: Assertion
-writeByteWithTooFewArguments = Left expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { EFFECTS { p: writeByte } }"
+writeWord8WithTooFewArguments :: Assertion
+writeWord8WithTooFewArguments = Left expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { EFFECTS { p: writeWord8 } }"
   where
-    expected = map DuringConversion [ArityMismatchForEffect (TransitionName "t") (Place "p") (Symbol "writeByte") 2 0]
+    expected = map DuringConversion [ArityMismatchForEffect (TransitionName "t") (Place "p") (Symbol "writeWord8") 2 0]
 
-writeByteWithTooManyArguments :: Assertion
-writeByteWithTooManyArguments = Left expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { EFFECTS { p: writeByte(3, 1, 4) } }"
+writeWord8WithTooManyArguments :: Assertion
+writeWord8WithTooManyArguments = Left expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { EFFECTS { p: writeWord8(3, 1, 4) } }"
   where
-    expected = map DuringConversion [ArityMismatchForEffect (TransitionName "t") (Place "p") (Symbol "writeByte") 2 3]
+    expected = map DuringConversion [ArityMismatchForEffect (TransitionName "t") (Place "p") (Symbol "writeWord8") 2 3]
 
-writeByteWithInvalidArgument :: Assertion
-writeByteWithInvalidArgument = Left expected @=? transitions <$> parseCsl "PLACES { p s } TRANSITION t { MATCH { s: S } EFFECTS { p: writeByte(S, _) } }"
+writeWord8WithInvalidArgument :: Assertion
+writeWord8WithInvalidArgument = Left expected @=? transitions <$> parseCsl "PLACES { p s } TRANSITION t { MATCH { s: S } EFFECTS { p: writeWord8(S, _) } }"
   where
     expected = map DuringConversion [InvalidProduction (TransitionName "t") (Place "p") Wildcard]
 
@@ -381,27 +381,27 @@ effectfulTransitionTests = testGroup "Effectful Transitions"
     ]
 
 nonOverlappingPatterns :: Assertion
-nonOverlappingPatterns = case parseCsl "PLACES { s p r } TRANSITION e1 { MATCH { s: S p: nil } EFFECTS { r: writeByte(S, 0x45) } } TRANSITION e2 { MATCH { s: S p: cons(_, _) } EFFECTS { p: writeByte(S, 0x4E) } }" of
+nonOverlappingPatterns = case parseCsl "PLACES { s p r } TRANSITION e1 { MATCH { s: S p: nil } EFFECTS { r: writeWord8(S, 0x45) } } TRANSITION e2 { MATCH { s: S p: cons(_, _) } EFFECTS { p: writeWord8(S, 0x4E) } }" of
     Left errors -> assertFailure $ show errors
     Right _ -> return ()
 
 slingActivation :: Assertion
-slingActivation = case parseCsl "PLACES { s p r } TRANSITION t { PRODUCE { p: cons(0x34, cons(0x32, nil)) } } TRANSITION e { MATCH { s: S p: cons(Byte, Bytes) } PRODUCE { s: S p: Bytes } EFFECTS { r: writeByte(S, Byte) } }" of
+slingActivation = case parseCsl "PLACES { s p r } TRANSITION t { PRODUCE { p: cons(0x34, cons(0x32, nil)) } } TRANSITION e { MATCH { s: S p: cons(Byte, Bytes) } PRODUCE { s: S p: Bytes } EFFECTS { r: writeWord8(S, Byte) } }" of
     Left errors -> assertFailure $ show errors
     Right _ -> return ()
 
 structuralConflictWithSling :: Assertion
-structuralConflictWithSling = Left expected @=? parseCsl "PLACES { s p } TRANSITION t { MATCH { p: X } PRODUCE { p: nil } } TRANSITION e { MATCH { s: S p: X } EFFECTS { p: writeByte(S, X) } }"
+structuralConflictWithSling = Left expected @=? parseCsl "PLACES { s p } TRANSITION t { MATCH { p: X } PRODUCE { p: nil } } TRANSITION e { MATCH { s: S p: X } EFFECTS { p: writeWord8(S, X) } }"
   where
     expected = map DuringValidation [StructuralConflictWithEffectfulTransition (TransitionName "e") $ Set.singleton (TransitionName "t")]
 
 structuralConflictInPreset :: Assertion
-structuralConflictInPreset = Left expected @=? parseCsl "PLACES { s p q } TRANSITION t { MATCH { p: _ } } TRANSITION e { MATCH { s: S p: X } EFFECTS { q: writeByte(S, X) } }"
+structuralConflictInPreset = Left expected @=? parseCsl "PLACES { s p q } TRANSITION t { MATCH { p: _ } } TRANSITION e { MATCH { s: S p: X } EFFECTS { q: writeWord8(S, X) } }"
   where
     expected = map DuringValidation [StructuralConflictWithEffectfulTransition (TransitionName "e") $ Set.singleton (TransitionName "t")]
 
 structuralConflictInPostset :: Assertion
-structuralConflictInPostset = Left expected @=? parseCsl "PLACES { p q r s1 s2 } TRANSITION e1 { MATCH { s1: S p: X } EFFECTS { r: writeByte(S, X) } } TRANSITION e2 { MATCH { s2: S q: X } EFFECTS { r: writeByte(S, X) } }"
+structuralConflictInPostset = Left expected @=? parseCsl "PLACES { p q r s1 s2 } TRANSITION e1 { MATCH { s1: S p: X } EFFECTS { r: writeWord8(S, X) } } TRANSITION e2 { MATCH { s2: S q: X } EFFECTS { r: writeWord8(S, X) } }"
   where
     expected = map DuringValidation
         [ StructuralConflictWithEffectfulTransition (TransitionName "e1") $ Set.singleton (TransitionName "e2")
@@ -409,7 +409,7 @@ structuralConflictInPostset = Left expected @=? parseCsl "PLACES { p q r s1 s2 }
         ]
 
 structuralConflictBetweenMultipleTransitions :: Assertion
-structuralConflictBetweenMultipleTransitions = Left expected @=? parseCsl "PLACES { p q r s1 s2 } TRANSITION t { PRODUCE { r: nil } } TRANSITION e1 { MATCH { s1: S p: X } EFFECTS { r: writeByte(S, X) } } TRANSITION e2 { MATCH { s2: S q: X } EFFECTS { r: writeByte(S, X) } }"
+structuralConflictBetweenMultipleTransitions = Left expected @=? parseCsl "PLACES { p q r s1 s2 } TRANSITION t { PRODUCE { r: nil } } TRANSITION e1 { MATCH { s1: S p: X } EFFECTS { r: writeWord8(S, X) } } TRANSITION e2 { MATCH { s2: S q: X } EFFECTS { r: writeWord8(S, X) } }"
   where
     expected = map DuringValidation
         [ StructuralConflictWithEffectfulTransition (TransitionName "e1") $ Set.fromList [TransitionName "e2", TransitionName "t"]
@@ -417,7 +417,7 @@ structuralConflictBetweenMultipleTransitions = Left expected @=? parseCsl "PLACE
         ]
 
 multipleStructuralConflicts :: Assertion
-multipleStructuralConflicts = Left expected @=? parseCsl "PLACES { p q r s1 s2 } TRANSITION t { MATCH { p: _ } } TRANSITION e1 { MATCH { s1: S p: X } EFFECTS { r: writeByte(S, X) } } TRANSITION e2 { MATCH { s2: S q: X } EFFECTS { r: writeByte(S, X) } }"
+multipleStructuralConflicts = Left expected @=? parseCsl "PLACES { p q r s1 s2 } TRANSITION t { MATCH { p: _ } } TRANSITION e1 { MATCH { s1: S p: X } EFFECTS { r: writeWord8(S, X) } } TRANSITION e2 { MATCH { s2: S q: X } EFFECTS { r: writeWord8(S, X) } }"
   where
     expected = map DuringValidation
         [ StructuralConflictWithEffectfulTransition (TransitionName "e1") $ Set.fromList [TransitionName "e2", TransitionName "t"]

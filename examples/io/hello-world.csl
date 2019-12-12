@@ -29,14 +29,14 @@ TRANSITION start {
 TRANSITION write {
   MATCH {
     streamAcquired: Stream
-    word: cons(Byte, Bytes)
+    word: cons(Word, Words)
   }
   PRODUCE {
     streamAcquired: Stream
-    word: Bytes
+    word: Words
   }
   EFFECTS {
-    effect: writeWord8(Stream, Byte)
+    effect: writeWord8(Stream, Word)
   }
 }
 
