@@ -39,7 +39,7 @@ reverseProgram = loadCsl "examples/list/reverse.csl" >>= \case
         , output = Set.fromList [Place "output"]
         }
     expectedInternalPlaces = Set.fromList [Place "original", Place "reversed"]
-    expectedMarking = Map.fromList [(Place "reversed", FunctionToken (Symbol "nil") [])]
+    expectedMarking = Map.fromList [(Place "reversed", nil)]
     expectedTransitions = Set.fromList [startTransition, addElementTransition, returnTransition]
     startTransition = (mkTransition "start")
         { patterns = Map.fromList [(Place "input", VariablePattern (Var "List"))]
@@ -103,7 +103,6 @@ markingTests = testGroup "Initial Marking"
     , testCase "Token on Inexistent Place" initialMarkingContainingInexistentPlace
     , testCase "Token on Interface Place" initialMarkingContainingInterfacePlace
     , testCase "Function" initialMarkingWithFunction
-    , testCase "Int"  initialMarkingWithInt
     , testCase "Wildcard" initialMarkingWithWildcard
     , testCase "Variable" initialMarkingWithVariable
     ]
@@ -124,14 +123,9 @@ initialMarkingContainingInterfacePlace = Left expected @=? parseCsl "INTERFACE {
     expected = map DuringValidation [TokenOnInterfacePlace (Place "p")]
 
 initialMarkingWithFunction :: Assertion
-initialMarkingWithFunction = Right expected @=? initialMarking <$> parseCsl "PLACES { p } MARKING { p: cons(42, nil) }"
+initialMarkingWithFunction = Right expected @=? initialMarking <$> parseCsl "PLACES { p } MARKING { p: cons(token, nil) }"
   where
-    expected = Map.fromList [(Place "p", FunctionToken (Symbol "cons") [IntToken 42, FunctionToken (Symbol "nil") []])]
-
-initialMarkingWithInt :: Assertion
-initialMarkingWithInt = Right expected @=? initialMarking <$> parseCsl "PLACES { p } MARKING { p: 42 }"
-  where
-    expected = Map.fromList [(Place "p", IntToken 42)]
+    expected = Map.fromList [(Place "p", cons blackToken nil)]
 
 initialMarkingWithWildcard :: Assertion
 initialMarkingWithWildcard = Left expected @=? parseCsl "PLACES { p } MARKING { p: _ }"
@@ -165,7 +159,6 @@ patternsTests = testGroup "Patterns"
     , testCase "Duplicate Variable in Pattern" duplicateVariableInPattern
     , testCase "Duplicate Variable in Different Patterns" duplicateVariableInPatterns
     , testCase "Function" patternWithFunction
-    , testCase "Int" patternWithInt
     , testCase "Wildcard" patternWithWildcard
     , testCase "Variable" patternWithVariable
     ]
@@ -203,14 +196,6 @@ patternWithFunction = Right expected @=? transitions <$> parseCsl "PLACES { p } 
         { patterns = Map.fromList [(Place "p", FunctionPattern (Symbol "cons") [VariablePattern (Var "Head"), VariablePattern (Var "Tail")])]
         }
 
-patternWithInt :: Assertion
-patternWithInt = Right expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { MATCH { p: 42 } }"
-  where
-    expected = Set.singleton t
-    t = (mkTransition "t")
-        { patterns = Map.fromList [(Place "p", IntPattern 42)]
-        }
-
 patternWithWildcard :: Assertion
 patternWithWildcard = Right expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { MATCH { p: _ } }"
   where
@@ -234,7 +219,6 @@ productionsTests = testGroup "Productions"
     , testCase "Duplicate Production" duplicateProduction
     , testCase "Substitution of Unknown Variable" substitutionOfUnknownVariable
     , testCase "Function" productionWithFunction
-    , testCase "Int" productionWithInt
     , testCase "Wildcard" productionWithWildcard
     , testCase "Variable" productionWithVariable
     ]
@@ -267,14 +251,6 @@ productionWithFunction = Right expected @=? transitions <$> parseCsl "PLACES { p
         { productions = Map.fromList [(Place "p", Construct $ FunctionConstruction (Symbol "cons") [FunctionConstruction (Symbol "true") [], FunctionConstruction (Symbol "nil") []])]
         }
 
-productionWithInt :: Assertion
-productionWithInt = Right expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { PRODUCE { p: 42 } }"
-  where
-    expected = Set.singleton t
-    t = (mkTransition "t")
-        { productions = Map.fromList [(Place "p", Construct $ IntConstruction 42)]
-        }
-
 productionWithWildcard :: Assertion
 productionWithWildcard = Left expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { PRODUCE { p: cons(_, nil) } }"
   where
@@ -300,7 +276,6 @@ effectsTests = testGroup "Effects"
     , testCase "writeWord8 (too few arguments)" writeWord8WithTooFewArguments
     , testCase "writeWord8 (too many arguments)" writeWord8WithTooManyArguments
     , testCase "writeWord8 (invalid argument)" writeWord8WithInvalidArgument
-    , testCase "Int" intEffect
     , testCase "Wildcard" wildcardEffect
     , testCase "Variable" substitutionEffect
     ]
@@ -353,11 +328,6 @@ writeWord8WithInvalidArgument :: Assertion
 writeWord8WithInvalidArgument = Left expected @=? transitions <$> parseCsl "PLACES { p s } TRANSITION t { MATCH { s: S } EFFECTS { p: writeWord8(S, _) } }"
   where
     expected = map DuringConversion [InvalidProduction (TransitionName "t") (Place "p") Wildcard]
-
-intEffect :: Assertion
-intEffect = Left expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { EFFECTS { p: 42 } }"
-  where
-    expected = map DuringConversion [InvalidEffect (TransitionName "t") (Place "p") (IntTerm 42)]
 
 wildcardEffect :: Assertion
 wildcardEffect = Left expected @=? transitions <$> parseCsl "PLACES { p } TRANSITION t { EFFECTS { p: _ } }"

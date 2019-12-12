@@ -136,9 +136,3 @@ notTrue = testProgramAgainstMarking "!true" notProgram marking expectation
 
     expectation :: Marking
     expectation = Map.fromList [(Place "output", false)]
-
-false :: Token
-false = FunctionToken (Symbol "false") []
-
-true :: Token
-true = FunctionToken (Symbol "true") []

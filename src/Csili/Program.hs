@@ -24,8 +24,13 @@ module Csili.Program
 , ConstructionRule(..)
 , Effect(..)
 , Token(..)
+, blackToken
 , zero
 , one
+, false
+, true
+, nil
+, cons
 , Var(..)
 , Symbol(..)
 
@@ -124,9 +129,11 @@ newtype Place = Place Text
 
 data Token
     = FunctionToken Symbol [Token]
-    | IntToken Int
     | Resource Handle
     deriving (Show, Eq)
+
+blackToken :: Token
+blackToken = FunctionToken (Symbol "token") []
 
 zero :: Token
 zero = FunctionToken (Symbol "zero") []
@@ -134,9 +141,20 @@ zero = FunctionToken (Symbol "zero") []
 one :: Token
 one = FunctionToken (Symbol "one") []
 
+false :: Token
+false = FunctionToken (Symbol "false") []
+
+true :: Token
+true = FunctionToken (Symbol "true") []
+
+nil :: Token
+nil = FunctionToken (Symbol "nil") []
+
+cons :: Token -> Token -> Token
+cons x xs = FunctionToken (Symbol "cons") [x, xs]
+
 data Pattern
     = FunctionPattern Symbol [Pattern]
-    | IntPattern Int
     | VariablePattern Var
     | WildcardPattern
     deriving (Show, Eq, Ord)
@@ -145,9 +163,6 @@ areOverlapping :: Pattern -> Pattern -> Bool
 areOverlapping pattern1 pattern2 = case pattern1 of
     FunctionPattern symbol1 patterns1 -> case pattern2 of
         FunctionPattern symbol2 patterns2 -> symbol1 == symbol2 && and (zipWith areOverlapping patterns1 patterns2)
-        _ -> False
-    IntPattern n1 -> case pattern2 of
-        IntPattern n2 -> n1 == n2
         _ -> False
     VariablePattern _ -> True
     WildcardPattern -> True
@@ -159,7 +174,6 @@ data Production
 
 data ConstructionRule
     = FunctionConstruction Symbol [ConstructionRule]
-    | IntConstruction Int
     | Substitution Var
     deriving (Show, Eq, Ord)
 
@@ -207,13 +221,11 @@ class Ord b => Collectible a b where
 instance Collectible Token Symbol where
     collect = \case
         FunctionToken symbol terms -> Set.insert symbol (Set.unions (map collect terms))
-        IntToken _ -> Set.empty
         Resource _ -> Set.empty
 
 instance Collectible Pattern Symbol where
     collect = \case
         FunctionPattern symbol terms -> Set.insert symbol (Set.unions (map collect terms))
-        IntPattern _ -> Set.empty
         VariablePattern _ -> Set.empty
         WildcardPattern -> Set.empty
 
@@ -230,7 +242,6 @@ instance Collectible Effect Symbol where
 instance Collectible ConstructionRule Symbol where
     collect = \case
         FunctionConstruction symbol terms ->  Set.insert symbol (Set.unions (map collect terms))
-        IntConstruction _ -> Set.empty
         Substitution _ -> Set.empty
 
 instance Collectible Token Var where
@@ -239,7 +250,6 @@ instance Collectible Token Var where
 instance Collectible Pattern Var where
     collect = \case
         FunctionPattern _ terms -> Set.unions (map collect terms)
-        IntPattern _ -> Set.empty
         VariablePattern var -> Set.singleton var
         WildcardPattern -> Set.empty
 
@@ -251,7 +261,6 @@ instance Collectible Production Var where
 instance Collectible ConstructionRule Var where
     collect = \case
         FunctionConstruction _ terms -> Set.unions (map collect terms)
-        IntConstruction _ -> Set.empty
         Substitution var -> Set.singleton var
 
 instance Collectible Effect Var where

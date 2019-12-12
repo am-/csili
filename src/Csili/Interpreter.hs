@@ -79,13 +79,6 @@ match pattern token = case pattern of
             | patternSymbol /= termSymbol -> Nothing
             | length patternTerms /= length termTerms -> Nothing
             | otherwise -> fmap Map.unions . sequence $ zipWith match patternTerms termTerms
-        IntToken _ -> Nothing
-        Resource _ -> Nothing
-    IntPattern patternInt -> case token of
-        FunctionToken _ _ -> Nothing
-        IntToken termInt
-            | patternInt == termInt -> Just Map.empty
-            | otherwise -> Nothing        
         Resource _ -> Nothing
     VariablePattern var -> Just $ Map.singleton var token
     WildcardPattern -> Just Map.empty
@@ -93,5 +86,4 @@ match pattern token = case pattern of
 substitute :: Map Var Token -> ConstructionRule -> Maybe Token
 substitute binding = \case
     FunctionConstruction symbol terms -> FunctionToken symbol <$> mapM (substitute binding) terms
-    IntConstruction n -> Just (IntToken n)
     Substitution var -> Map.lookup var binding

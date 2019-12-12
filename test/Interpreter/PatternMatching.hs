@@ -19,10 +19,7 @@ matching = testGroup "Matching"
     , testCase "WildcardPattern Pattern (inside)" wildcardInside
     , testCase "Variable (top level)" topLevelVariable
     , testCase "Variable (inside)" variableInside
-    , testCase "Same Int" sameInt
     , testCase "Same Function" sameFunction
-    , testCase "Different Term Types" differentTermTypes
-    , testCase "Different Integer Values" differentIntegerValues
     , testCase "Different Top Level Symbol" differentTopLevelSymbol
     , testCase "Different Arity" differentArity
     , testCase "Different Sub Term" differentSubterm
@@ -30,50 +27,37 @@ matching = testGroup "Matching"
 
 topLevelWildcardPattern :: Assertion
 topLevelWildcardPattern = do
-    Just Map.empty @=? match WildcardPattern (IntToken 42)
-    Just Map.empty @=? match WildcardPattern (FunctionToken (Symbol "cons") [IntToken 1, FunctionToken (Symbol "nil") []])
+    Just Map.empty @=? match WildcardPattern (cons blackToken nil)
 
 wildcardInside :: Assertion
-wildcardInside = Just Map.empty @=? match (FunctionPattern (Symbol "x") [WildcardPattern]) (FunctionToken (Symbol "x") [IntToken 1])
+wildcardInside = Just Map.empty @=? match (FunctionPattern (Symbol "x") [WildcardPattern]) (FunctionToken (Symbol "x") [FunctionToken (Symbol "token") []])
 
 topLevelVariable :: Assertion
-topLevelVariable = do
-    Just (Map.fromList [(var, int)]) @=? match (VariablePattern var) int
-    Just (Map.fromList [(var, function)]) @=? match (VariablePattern var) function
+topLevelVariable = Just (Map.fromList [(var, function)]) @=? match (VariablePattern var) function
   where
     var = Var "V"
-    int = IntToken 42
-    function = FunctionToken (Symbol "cons") [IntToken 1, FunctionToken (Symbol "nil") []]
+    function = cons blackToken nil
 
 variableInside :: Assertion
-variableInside = Just (Map.fromList [(var, int)]) @=? match (FunctionPattern (Symbol "x") [VariablePattern var]) function
+variableInside = Just (Map.fromList [(var, token)]) @=? match (FunctionPattern (Symbol "x") [VariablePattern var]) function
   where
     var = Var "V"
-    int = IntToken 1
-    function = FunctionToken (Symbol "x") [int]
+    token = FunctionToken (Symbol "token") []
+    function = FunctionToken (Symbol "x") [token]
 
 sameFunction :: Assertion
-sameFunction = Just Map.empty @=? match (FunctionPattern (Symbol "nil") []) (FunctionToken (Symbol "nil") [])
-
-sameInt :: Assertion
-sameInt = Just Map.empty @=? match (IntPattern 1) (IntToken 1)
-
-differentTermTypes :: Assertion
-differentTermTypes = do
-    Nothing @=? match (IntPattern 15) (FunctionToken (Symbol "nil") [])
-    Nothing @=? match (FunctionPattern (Symbol "nil") []) (IntToken 15)
-
-differentIntegerValues :: Assertion
-differentIntegerValues = Nothing @=? match (IntPattern 15) (IntToken 16)
+sameFunction = Just Map.empty @=? match (FunctionPattern (Symbol "nil") []) (nil)
 
 differentTopLevelSymbol :: Assertion
 differentTopLevelSymbol = Nothing @=? match (FunctionPattern (Symbol "x") []) (FunctionToken (Symbol "y") [])
 
 differentArity :: Assertion
-differentArity = Nothing @=? match (FunctionPattern (Symbol "x") [IntPattern 1, IntPattern 1]) (FunctionToken (Symbol "x") [IntToken 1])
+differentArity = Nothing @=? match (FunctionPattern (Symbol "x") [tokenPattern, tokenPattern]) (FunctionToken (Symbol "x") [blackToken])
+  where
+    tokenPattern = FunctionPattern (Symbol "token") []
 
 differentSubterm :: Assertion
-differentSubterm = Nothing @=? match (FunctionPattern (Symbol "x") [IntPattern 1]) (FunctionToken (Symbol "x") [IntToken 2])
+differentSubterm = Nothing @=? match (FunctionPattern (Symbol "x") [FunctionPattern (Symbol "true") []]) (FunctionToken (Symbol "x") [false])
 
 substitution :: TestTree
 substitution = testGroup "Substitution"
@@ -85,16 +69,13 @@ substitution = testGroup "Substitution"
     ]
 
 identityWithoutVariables :: Assertion
-identityWithoutVariables = do
-    Just (IntToken 42) @=? substitute Map.empty (IntConstruction 42)
-    Just (FunctionToken (Symbol "x") []) @=? substitute Map.empty (FunctionConstruction (Symbol "x") [])
+identityWithoutVariables = Just (FunctionToken (Symbol "x") []) @=? substitute Map.empty (FunctionConstruction (Symbol "x") [])
 
 completeSubstitution :: Assertion
-completeSubstitution = Just int @=? substitute binding (Substitution var)
+completeSubstitution = Just blackToken @=? substitute binding (Substitution var)
   where
-    int = IntToken 42
     var = Var "V"
-    binding = Map.fromList [(var, int)]
+    binding = Map.fromList [(var, blackToken)]
 
 missingVariable :: Assertion
 missingVariable = Nothing  @=? substitute binding (Substitution var)
@@ -105,14 +86,13 @@ missingVariable = Nothing  @=? substitute binding (Substitution var)
 insideSubstitution :: Assertion
 insideSubstitution = Just expectation @=? substitute binding production
   where
-    expectation = FunctionToken (Symbol "cons") [int, FunctionToken (Symbol "nil") []]
+    expectation = cons blackToken nil
     production = FunctionConstruction (Symbol "cons") [Substitution var, FunctionConstruction (Symbol "nil") []]
-    binding = Map.fromList [(var, int)]
-    int = IntToken 42
+    binding = Map.fromList [(var, blackToken)]
     var = Var "V"
 
 missingVariableInsideSubstitution :: Assertion
-missingVariableInsideSubstitution = Nothing @=? substitute binding (FunctionConstruction (Symbol "cons") [IntConstruction 42, Substitution var])
+missingVariableInsideSubstitution = Nothing @=? substitute binding (FunctionConstruction (Symbol "cons") [FunctionConstruction (Symbol "token") [], Substitution var])
   where
     var = Var "V"
     binding = Map.empty

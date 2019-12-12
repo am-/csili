@@ -117,7 +117,6 @@ validateVariablesInPatterns transition = concatMap toError . Map.assocs $ patter
     mkError = DuplicateVariableInPattern (name transition)
     findVariables = \case
         FunctionPattern _ patterns -> concatMap findVariables patterns
-        IntPattern _ -> []
         VariablePattern var -> [var]
         WildcardPattern -> []
 

@@ -36,7 +36,7 @@ evaluateIgnoresInterface :: TestTree
 evaluateIgnoresInterface = testCase "Evaluate Ignores Interface" $ evaluate program >>= (expectation @=?) 
   where
     program = empty
-        { initialMarking = Map.fromList [(Place "input", IntToken 1), (Place "store", IntToken 0)]
+        { initialMarking = Map.fromList [(Place "input", true), (Place "store", false)]
         , interface = Interface
             { input = Set.fromList [Place "input"]
             , output = Set.fromList [Place "output"]
@@ -47,7 +47,4 @@ evaluateIgnoresInterface = testCase "Evaluate Ignores Interface" $ evaluate prog
         { patterns = Map.fromList [(Place "input", VariablePattern (Var "New")), (Place "store", VariablePattern (Var "Old"))]
         , productions = Map.fromList [(Place "output", Construct $ Substitution (Var "Old")), (Place "store", Construct $ Substitution (Var "New"))]
         }
-    expectation = Map.fromList [(Place "output", IntToken 0), (Place "store", IntToken 1)]
-
-nil :: Token
-nil = FunctionToken (Symbol "nil") []
+    expectation = Map.fromList [(Place "output", false), (Place "store", true)]

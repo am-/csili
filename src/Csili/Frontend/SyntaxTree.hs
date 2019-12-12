@@ -27,7 +27,6 @@ type Effect = (Text, Term)
 
 data Term
     = Function Symbol [Term]
-    | IntTerm Int
     | Variable Var
     | Wildcard
     deriving (Show, Eq, Ord)

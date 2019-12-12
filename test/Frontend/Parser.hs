@@ -27,24 +27,39 @@ terms = testGroup "Terms"
     , testCase "Wildcard (without name)" wildcardWithoutName
     , testCase "Wildcard (with name)" wildcardWithName
     , testCase "Wildcard (within function)" wildcardWithinFunction
-    , testGroup "Integers"
-      [ testCase "Zero" $ Right (IntTerm 0) @=? parseOnly term "0"
-      , testCase "Zero (positive)" $ Right (IntTerm 0) @=? parseOnly term "+0"
-      , testCase "Zero (negative)" $ Right (IntTerm 0) @=? parseOnly term "-0"
-      , testCase "Positive" $ Right (IntTerm 42) @=? parseOnly term "42"
-      , testCase "Positive (signed)" $ Right (IntTerm 23) @=? parseOnly term "+23"
-      , testCase "Negative" $ Right (IntTerm (-273)) @=? parseOnly term "-273"
-      ]
-    , testGroup "word8"
-      [ testCase "4 Bit (too short)" $ Left "endOfInput" @=? parseOnly (term <* endOfInput) "0xA"
-      , testCase "8 bit (minimum bound)" $ Right (Function "word8" [zero, zero, zero, zero, zero, zero, zero, zero]) @=? parseOnly (term <* endOfInput) "0x00"
-      , testCase "8 bit (in between)" $ Right (Function "word8" [zero, zero, one, zero, one, zero, one, zero]) @=? parseOnly (term <* endOfInput) "0x2A"
-      , testCase "8 bit (maximum bound)" $ Right (Function "word8" [one, one, one, one, one, one, one, one]) @=? parseOnly (term <* endOfInput) "0xFF"
-      , testCase "8 bit (signed, positive)" $ Left "endOfInput" @=? parseOnly (term <* endOfInput) "+0x17"
-      , testCase "8 bit (signed, negative)" $ Left "endOfInput" @=? parseOnly (term <* endOfInput) "-0x17"
-      , testCase "12 Bit (too long)" $ Left "endOfInput" @=? parseOnly (term <* endOfInput) "0xABC"
-      , testCase "Uppercase and Lowercase Equivalence" $ parseOnly (term <* endOfInput) "0xAB" @=? parseOnly (term <* endOfInput) "0xab"
-      ]
+    , int64
+    , word8
+    ]
+
+int64 :: TestTree
+int64 = testGroup "Integers"
+    [ testCase "Minimum" $ Right min64 @=? parseOnly term "-18446744073709551616"
+    , testCase "Negative" $ Right negative @=? parseOnly term "-273"
+    , testCase "Zero (negative)" $ Right zero64 @=? parseOnly term "-0"
+    , testCase "Zero" $ Right zero64 @=? parseOnly term "0"
+    , testCase "Zero (positive)" $ Right zero64 @=? parseOnly term "+0"
+    , testCase "Positive (signed)" $ Right signedPositive @=? parseOnly term "+23"
+    , testCase "Positive" $ Right positive @=? parseOnly term "42"
+    , testCase "Maximum" $ Right max64 @=? parseOnly term "18446744073709551615"
+    ]
+  where
+    min64 = Function "int64" [one, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero]
+    negative = Function "int64" [one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, zero, one, one, one, zero, one, one, one, one]
+    zero64 = Function "int64" [zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero]
+    signedPositive = Function "int64" [zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, one, zero, one, one, one]
+    positive = Function "int64" [zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, one, zero, one, zero, one, zero]
+    max64 = Function "int64" [zero, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one, one]
+
+word8 :: TestTree
+word8 = testGroup "word8"
+    [ testCase "4 Bit (too short)" $ Left "endOfInput" @=? parseOnly (term <* endOfInput) "0xA"
+    , testCase "8 bit (minimum bound)" $ Right (Function "word8" [zero, zero, zero, zero, zero, zero, zero, zero]) @=? parseOnly (term <* endOfInput) "0x00"
+    , testCase "8 bit (signed, negative)" $ Left "endOfInput" @=? parseOnly (term <* endOfInput) "-0x17"
+    , testCase "8 bit (signed, positive)" $ Left "endOfInput" @=? parseOnly (term <* endOfInput) "+0x17"
+    , testCase "8 bit (in between)" $ Right (Function "word8" [zero, zero, one, zero, one, zero, one, zero]) @=? parseOnly (term <* endOfInput) "0x2A"
+    , testCase "8 bit (maximum bound)" $ Right (Function "word8" [one, one, one, one, one, one, one, one]) @=? parseOnly (term <* endOfInput) "0xFF"
+    , testCase "12 Bit (too long)" $ Left "endOfInput" @=? parseOnly (term <* endOfInput) "0xABC"
+    , testCase "Uppercase and Lowercase Equivalence" $ parseOnly (term <* endOfInput) "0xAB" @=? parseOnly (term <* endOfInput) "0xab"
     ]
 
 singleLetterVariable :: Assertion

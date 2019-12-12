@@ -68,7 +68,6 @@ toInitialMarking tree = case findDuplicates . map fst $ SyntaxTree.marking tree 
 toToken :: Place -> Term -> Validation [ConversionError] Token
 toToken place = \case
     Function symbol terms -> FunctionToken (Symbol symbol) <$> traverse (toToken place) terms
-    IntTerm n -> pure $ IntToken n
     term@_ -> Failure [InvalidToken place term]
 
 toTransitions :: SyntaxTree -> Validation [ConversionError] (Set Transition)
@@ -107,14 +106,12 @@ processTransitionBlock convertTerm mkDuplicateError name mapping = case findDupl
 toPattern :: TransitionName -> Place -> Term -> Validation [ConversionError] Pattern
 toPattern _name _place = \case
     Function symbol terms -> FunctionPattern (Symbol symbol) <$> traverse (toPattern _name _place) terms
-    IntTerm n -> pure $ IntPattern n
     Variable var -> pure $ VariablePattern (Var var)
     Wildcard -> pure $ WildcardPattern
 
 toConstructionRule :: TransitionName -> Place -> Term -> Validation [ConversionError] ConstructionRule
 toConstructionRule name place = \case
     Function symbol terms -> FunctionConstruction (Symbol symbol) <$> traverse (toConstructionRule name place) terms
-    IntTerm n -> pure $ IntConstruction n
     Variable var -> pure $ Substitution (Var var)
     term@_ -> Failure [InvalidProduction name place term]
 
