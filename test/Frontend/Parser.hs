@@ -27,13 +27,22 @@ terms = testGroup "Terms"
     , testCase "Wildcard (without name)" wildcardWithoutName
     , testCase "Wildcard (with name)" wildcardWithName
     , testCase "Wildcard (within function)" wildcardWithinFunction
-    , int64
+    , bit
     , word8
+    , int64
+    ]
+
+bit :: TestTree
+bit = testGroup "Bits"
+    [ testCase "too short" $ Left "endOfInput" @=? parseOnly (term <* endOfInput) "0b"
+    , testCase "Zero" $ Right zero @=? parseOnly term "0b0"
+    , testCase "One" $ Right one @=? parseOnly term "0b1"
+    , testCase "too long" $ Left "endOfInput" @=? parseOnly (term <* endOfInput) "0b01"
     ]
 
 int64 :: TestTree
 int64 = testGroup "Integers"
-    [ testCase "Minimum" $ Right min64 @=? parseOnly term "-18446744073709551616"
+    [ testCase "Minimum" $ Right min64 @=? parseOnly term "-9223372036854775808"
     , testCase "Negative" $ Right negative @=? parseOnly term "-273"
     , testCase "Zero (negative)" $ Right zero64 @=? parseOnly term "-0"
     , testCase "Zero" $ Right zero64 @=? parseOnly term "0"

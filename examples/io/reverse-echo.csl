@@ -62,133 +62,133 @@ TRANSITION startComparisonAgainstNewline {
 
 TRANSITION compareBit1AgainstZero {
   MATCH {
-    bit1Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, zero)
+    bit1Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, 0b0)
   }
   PRODUCE {
-    bit2Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, zero)
+    bit2Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, 0b0)
   }
 }
 
 TRANSITION compareBit1AgainstOne {
   MATCH {
-    bit1Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, one)
+    bit1Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, 0b1)
   }
   PRODUCE {
-    processedCharacter: nonNewline(word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, one))
+    processedCharacter: nonNewline(word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, 0b1))
   }
 }
 
 TRANSITION compareBit2AgainstZero {
   MATCH {
-    bit2Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, zero, Bit1)
+    bit2Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, 0b0, Bit1)
   }
   PRODUCE {
-    processedCharacter: nonNewline(word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, zero, Bit1))
+    processedCharacter: nonNewline(word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, 0b0, Bit1))
   }
 }
 
 TRANSITION compareBit2AgainstOne {
   MATCH {
-    bit2Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, one, Bit1)
+    bit2Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, 0b1, Bit1)
   }
   PRODUCE {
-    bit3Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, one, Bit1)
+    bit3Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, Bit3, 0b1, Bit1)
   }
 }
 
 TRANSITION compareBit3AgainstZero {
   MATCH {
-    bit3Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, zero, Bit2, Bit1)
+    bit3Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, 0b0, Bit2, Bit1)
   }
   PRODUCE {
-    bit4Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, zero, Bit2, Bit1)
+    bit4Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, 0b0, Bit2, Bit1)
   }
 }
 
 TRANSITION compareBit3AgainstOne {
   MATCH {
-    bit3Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, one, Bit2, Bit1)
+    bit3Comparison: word8(Bit8, Bit7, Bit6, Bit5, Bit4, 0b1, Bit2, Bit1)
   }
   PRODUCE {
-    processedCharacter: nonNewline(word8(Bit8, Bit7, Bit6, Bit5, Bit4, one, Bit2, Bit1))
+    processedCharacter: nonNewline(word8(Bit8, Bit7, Bit6, Bit5, Bit4, 0b1, Bit2, Bit1))
   }
 }
 
 TRANSITION compareBit4AgainstZero {
   MATCH {
-    bit4Comparison: word8(Bit8, Bit7, Bit6, Bit5, zero, Bit3, Bit2, Bit1)
+    bit4Comparison: word8(Bit8, Bit7, Bit6, Bit5, 0b0, Bit3, Bit2, Bit1)
   }
   PRODUCE {
-    processedCharacter: nonNewline(word8(Bit8, Bit7, Bit6, Bit5, zero, Bit3, Bit2, Bit1))
+    processedCharacter: nonNewline(word8(Bit8, Bit7, Bit6, Bit5, 0b0, Bit3, Bit2, Bit1))
   }
 }
 
 TRANSITION compareBit4AgainstOne {
   MATCH {
-    bit4Comparison: word8(Bit8, Bit7, Bit6, Bit5, one, Bit3, Bit2, Bit1)
+    bit4Comparison: word8(Bit8, Bit7, Bit6, Bit5, 0b1, Bit3, Bit2, Bit1)
   }
   PRODUCE {
-    bit5Comparison: word8(Bit8, Bit7, Bit6, Bit5, one, Bit3, Bit2, Bit1)
+    bit5Comparison: word8(Bit8, Bit7, Bit6, Bit5, 0b1, Bit3, Bit2, Bit1)
   }
 }
 
 TRANSITION compareBit5AgainstZero {
   MATCH {
-    bit5Comparison: word8(Bit8, Bit7, Bit6, zero, Bit4, Bit3, Bit2, Bit1)
+    bit5Comparison: word8(Bit8, Bit7, Bit6, 0b0, Bit4, Bit3, Bit2, Bit1)
   }
   PRODUCE {
-    bit6Comparison: word8(Bit8, Bit7, Bit6, zero, Bit4, Bit3, Bit2, Bit1)
+    bit6Comparison: word8(Bit8, Bit7, Bit6, 0b0, Bit4, Bit3, Bit2, Bit1)
   }
 }
 
 TRANSITION compareBit5AgainstOne {
   MATCH {
-    bit5Comparison: word8(Bit8, Bit7, Bit6, one, Bit4, Bit3, Bit2, Bit1)
+    bit5Comparison: word8(Bit8, Bit7, Bit6, 0b1, Bit4, Bit3, Bit2, Bit1)
   }
   PRODUCE {
-    processedCharacter: nonNewline(word8(Bit8, Bit7, Bit6, one, Bit4, Bit3, Bit2, Bit1))
+    processedCharacter: nonNewline(word8(Bit8, Bit7, Bit6, 0b1, Bit4, Bit3, Bit2, Bit1))
   }
 }
 
 TRANSITION compareBit6AgainstZero {
   MATCH {
-    bit6Comparison: word8(Bit8, Bit7, zero, Bit5, Bit4, Bit3, Bit2, Bit1)
+    bit6Comparison: word8(Bit8, Bit7, 0b0, Bit5, Bit4, Bit3, Bit2, Bit1)
   }
   PRODUCE {
-    bit7Comparison: word8(Bit8, Bit7, zero, Bit5, Bit4, Bit3, Bit2, Bit1)
+    bit7Comparison: word8(Bit8, Bit7, 0b0, Bit5, Bit4, Bit3, Bit2, Bit1)
   }
 }
 
 TRANSITION compareBit6AgainstOne {
   MATCH {
-    bit6Comparison: word8(Bit8, Bit7, one, Bit5, Bit4, Bit3, Bit2, Bit1)
+    bit6Comparison: word8(Bit8, Bit7, 0b1, Bit5, Bit4, Bit3, Bit2, Bit1)
   }
   PRODUCE {
-    processedCharacter: nonNewline(word8(Bit8, Bit7, one, Bit5, Bit4, Bit3, Bit2, Bit1))
+    processedCharacter: nonNewline(word8(Bit8, Bit7, 0b1, Bit5, Bit4, Bit3, Bit2, Bit1))
   }
 }
 
 TRANSITION compareBit7AgainstZero {
   MATCH {
-    bit7Comparison: word8(Bit8, zero, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1)
+    bit7Comparison: word8(Bit8, 0b0, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1)
   }
   PRODUCE {
-    bit8Comparison: word8(Bit8, zero, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1)
+    bit8Comparison: word8(Bit8, 0b0, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1)
   }
 }
 
 TRANSITION compareBit7AgainstOne {
   MATCH {
-    bit7Comparison: word8(Bit8, one, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1)
+    bit7Comparison: word8(Bit8, 0b1, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1)
   }
   PRODUCE {
-    processedCharacter: nonNewline(word8(Bit8, one, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1))
+    processedCharacter: nonNewline(word8(Bit8, 0b1, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1))
   }
 }
 
 TRANSITION compareBit8AgainstZero {
   MATCH {
-    bit8Comparison: word8(zero, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1)
+    bit8Comparison: word8(0b0, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1)
   }
   PRODUCE {
     processedCharacter: newline
@@ -197,10 +197,10 @@ TRANSITION compareBit8AgainstZero {
 
 TRANSITION compareBit8AgainstOne {
   MATCH {
-    bit8Comparison: word8(one, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1)
+    bit8Comparison: word8(0b1, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1)
   }
   PRODUCE {
-    processedCharacter: nonNewline(word8(one, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1))
+    processedCharacter: nonNewline(word8(0b1, Bit7, Bit6, Bit5, Bit4, Bit3, Bit2, Bit1))
   }
 }
 

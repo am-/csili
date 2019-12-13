@@ -33,7 +33,7 @@ syntaxTree = SyntaxTree
 --------------------------------------------------------------------------------
 
 term :: Parser Term
-term = fullClean (variable <|> function <|> word8 <|> int64 <|> wildcard)
+term = fullClean (variable <|> function <|> word8 <|> bit <|> int64 <|> wildcard)
 
 variable :: Parser Term
 variable = Variable <$> upperCaseIdentifier
@@ -41,34 +41,16 @@ variable = Variable <$> upperCaseIdentifier
 function :: Parser Term
 function = uncurry Function <$> functionTerm (lowerCaseIdentifier) term
 
-int64 :: Parser Term
-int64 = toInt64 <$> signed decimal
-  where
-    toInt64 :: Integer -> Term
-    toInt64 n
-      | n < 0 = Function "int64" . (one:) $ toInt63 ((9223372036854775808 :: Integer) + n)
-      | otherwise = Function "int64" . (zero:) $ toInt63 n
-
-    toInt63 :: Integer -> [Term]
-    toInt63 n = extractBits n (reverse powersOfTwo)
-
-    extractBits :: Integer -> [Integer] -> [Term]
-    extractBits n = \case
-        [] -> []
-        power:powers
-            | power <= n -> one : extractBits (n - power) powers
-            | otherwise -> zero : extractBits n powers
-
-    powersOfTwo :: [Integer]
-    powersOfTwo = Prelude.take 63 $ iterate (2*) 1
+bit :: Parser Term
+bit = char '0' *> char 'b' *> (fmap (const zero) (char '0') <|> fmap (const one) (char '1'))
 
 word8 :: Parser Term
-word8 = char '0' *> char 'x' *> (toWord8 <$> hexDigitInBits <*> hexDigitInBits)
+word8 = char '0' *> char 'x' *> (toWord8 <$> hexDigit <*> hexDigit)
   where
     toWord8 bits1 bits0 = Function "word8" $ concat [bits1, bits0]
 
-hexDigitInBits :: Parser [Term]
-hexDigitInBits = flip satisfyWith (not . null) $ \case
+hexDigit :: Parser [Term]
+hexDigit = flip satisfyWith (not . null) $ \case
     '0' -> [zero, zero, zero, zero]
     '1' -> [zero, zero, zero, one]
     '2' -> [zero, zero, one, zero]
@@ -92,6 +74,27 @@ hexDigitInBits = flip satisfyWith (not . null) $ \case
     'F' -> [one, one, one, one]
     'f' -> [one, one, one, one]
     _ -> []
+
+int64 :: Parser Term
+int64 = toInt64 <$> signed decimal
+  where
+    toInt64 :: Integer -> Term
+    toInt64 n
+      | n < 0 = Function "int64" . (one:) $ toInt63 ((9223372036854775808 :: Integer) + n)
+      | otherwise = Function "int64" . (zero:) $ toInt63 n
+
+    toInt63 :: Integer -> [Term]
+    toInt63 n = extractBits n (reverse powersOfTwo)
+
+    extractBits :: Integer -> [Integer] -> [Term]
+    extractBits n = \case
+        [] -> []
+        power:powers
+            | power <= n -> one : extractBits (n - power) powers
+            | otherwise -> zero : extractBits n powers
+
+    powersOfTwo :: [Integer]
+    powersOfTwo = Prelude.take 63 $ iterate (2*) 1
 
 wildcard :: Parser Term
 wildcard = const Wildcard <$> (char '_' *> takeWhile isAlphaNum)
