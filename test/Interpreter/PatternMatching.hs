@@ -30,7 +30,7 @@ topLevelWildcardPattern = do
     Just Map.empty @=? match WildcardPattern (cons blackToken nil)
 
 wildcardInside :: Assertion
-wildcardInside = Just Map.empty @=? match (FunctionPattern (Symbol "x") [WildcardPattern]) (FunctionToken (Symbol "x") [FunctionToken (Symbol "token") []])
+wildcardInside = Just Map.empty @=? match (FunctionPattern (Symbol "x") [WildcardPattern]) (FunctionToken (Symbol "x") [blackToken])
 
 topLevelVariable :: Assertion
 topLevelVariable = Just (Map.fromList [(var, function)]) @=? match (VariablePattern var) function
@@ -39,11 +39,10 @@ topLevelVariable = Just (Map.fromList [(var, function)]) @=? match (VariablePatt
     function = cons blackToken nil
 
 variableInside :: Assertion
-variableInside = Just (Map.fromList [(var, token)]) @=? match (FunctionPattern (Symbol "x") [VariablePattern var]) function
+variableInside = Just (Map.fromList [(var, blackToken)]) @=? match (FunctionPattern (Symbol "x") [VariablePattern var]) function
   where
     var = Var "V"
-    token = FunctionToken (Symbol "token") []
-    function = FunctionToken (Symbol "x") [token]
+    function = FunctionToken (Symbol "x") [blackToken]
 
 sameFunction :: Assertion
 sameFunction = Just Map.empty @=? match (FunctionPattern (Symbol "nil") []) (nil)

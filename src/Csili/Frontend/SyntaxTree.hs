@@ -6,6 +6,7 @@ module Csili.Frontend.SyntaxTree
 , ConstructionRule
 , Effect
 , Term(..)
+, blackToken
 , zero
 , one
 ) where
@@ -34,6 +35,9 @@ data Term
 --------------------------------------------------------------------------------
 -- Built-in Terms
 --------------------------------------------------------------------------------
+
+blackToken :: Term
+blackToken = Function "blackToken" []
 
 zero :: Term
 zero = Function "zero" []

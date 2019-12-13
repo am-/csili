@@ -27,6 +27,7 @@ terms = testGroup "Terms"
     , testCase "Wildcard (without name)" wildcardWithoutName
     , testCase "Wildcard (with name)" wildcardWithName
     , testCase "Wildcard (within function)" wildcardWithinFunction
+    , testCase "Black Token" $ Right blackToken @=? parseOnly term "@"
     , bit
     , word8
     , int64

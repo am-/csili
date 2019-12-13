@@ -33,13 +33,16 @@ syntaxTree = SyntaxTree
 --------------------------------------------------------------------------------
 
 term :: Parser Term
-term = fullClean (variable <|> function <|> word8 <|> bit <|> int64 <|> wildcard)
+term = fullClean (variable <|> function <|> token <|> bit <|> word8 <|> int64 <|> wildcard)
 
 variable :: Parser Term
 variable = Variable <$> upperCaseIdentifier
 
 function :: Parser Term
 function = uncurry Function <$> functionTerm (lowerCaseIdentifier) term
+
+token :: Parser Term
+token = const blackToken <$> char '@'
 
 bit :: Parser Term
 bit = char '0' *> char 'b' *> (fmap (const zero) (char '0') <|> fmap (const one) (char '1'))
