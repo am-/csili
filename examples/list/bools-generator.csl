@@ -1,0 +1,56 @@
+INTERFACE {
+  INPUT {
+    tokens
+  }
+  OUTPUT {
+    bools
+  }
+}
+
+PLACES {
+  tokenList
+  boolList
+}
+
+TRANSITION start {
+  MATCH {
+    tokens: List
+  }
+  PRODUCE {
+    boolList: nil
+    tokenList: List
+  }
+}
+
+TRANSITION addTrue {
+  MATCH {
+    tokenList: cons(@, List)
+    boolList: Bools
+  }
+  PRODUCE {
+    tokenList: List
+    boolList: cons(true, Bools)
+  }
+}
+
+TRANSITION addFalse {
+  MATCH {
+    tokenList: cons(@, List)
+    boolList: Bools
+  }
+  PRODUCE {
+    tokenList: List
+    boolList: cons(false, Bools)
+  }
+}
+
+TRANSITION finish {
+  MATCH {
+    tokenList: nil
+    boolList: Bools
+  }
+
+  PRODUCE {
+    bools: Bools
+  }
+}

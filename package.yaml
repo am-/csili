@@ -19,6 +19,7 @@ default-extensions:
 dependencies:
   - base
   - containers
+  - dlist
   - text
   - attoparsec
   - bifunctors

@@ -133,7 +133,7 @@ data Token
     deriving (Show, Eq)
 
 blackToken :: Token
-blackToken = FunctionToken (Symbol "token") []
+blackToken = FunctionToken (Symbol "blackToken") []
 
 zero :: Token
 zero = FunctionToken (Symbol "zero") []

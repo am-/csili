@@ -16,6 +16,7 @@ import Data.Maybe (isJust)
 import System.IO (hPutChar, hGetChar)
 import Control.Concurrent.MVar (newEmptyMVar, tryTakeMVar, MVar, putMVar, takeMVar)
 import Control.Concurrent (threadDelay, forkIO)
+import qualified Data.DList as DList
 
 import Csili.Interpreter.Word
 import Csili.Program
@@ -27,19 +28,23 @@ run program = fmap calculateFinalMarking . evaluate . replaceMarking program . c
     calculateFinalMarking = flip Map.restrictKeys (output $ interface program)
 
 evaluate :: Program -> IO Marking
-evaluate program = go Map.empty (initialMarking program) allTransitions
+evaluate program = go Map.empty (initialMarking program) DList.empty (Set.elems $ transitions program)
   where
-   allTransitions = Set.elems $ transitions program
-   go promises marking = \case
+   go promises marking nextCandidates = \case
        []  | Map.null promises -> return marking
-           | otherwise -> threadDelay 100 >> go promises marking allTransitions
+           | otherwise -> threadDelay 100 >> go promises marking DList.empty (DList.toList nextCandidates)
        transition:remainingTransitions -> fireWithPromises transition promises marking >>= \case
-           NotFired -> go promises marking remainingTransitions
-           TriggeredEffects promisedTokens -> go (Map.insert (name transition) promisedTokens promises) marking remainingTransitions
+           NotFired -> go promises marking (DList.snoc nextCandidates transition) remainingTransitions
+           TriggeredEffects promisedTokens -> go
+               (Map.insert (name transition) promisedTokens promises)
+               marking
+               (DList.cons transition nextCandidates)
+               remainingTransitions
            FiredTransition tokens -> go
                (Map.delete (name transition) promises)
                (calculateMarking marking (Map.keysSet $ patterns transition) tokens)
-               allTransitions
+               DList.empty
+               (DList.toList . DList.append nextCandidates . flip DList.snoc transition $ DList.fromList remainingTransitions)
 
 isEnabled :: Transition -> Marking -> Bool
 isEnabled transition = isJust . bindVariables transition

@@ -96,7 +96,7 @@ sling = do
     marking = Map.fromList [(Place "p", nil)]
     t = (mkTransition "t")
         { patterns = Map.fromList [(Place "p", VariablePattern var)]
-        , productions = Map.fromList [(Place "p", Construct $ FunctionConstruction (Symbol "cons") [FunctionConstruction (Symbol "token") [], Substitution var])]
+        , productions = Map.fromList [(Place "p", Construct $ FunctionConstruction (Symbol "cons") [FunctionConstruction (Symbol "blackToken") [], Substitution var])]
         }
     expectedMarking = Map.fromList [(Place "p", cons blackToken nil)]
 

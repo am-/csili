@@ -123,7 +123,7 @@ initialMarkingContainingInterfacePlace = Left expected @=? parseCsl "INTERFACE {
     expected = map DuringValidation [TokenOnInterfacePlace (Place "p")]
 
 initialMarkingWithFunction :: Assertion
-initialMarkingWithFunction = Right expected @=? initialMarking <$> parseCsl "PLACES { p } MARKING { p: cons(token, nil) }"
+initialMarkingWithFunction = Right expected @=? initialMarking <$> parseCsl "PLACES { p } MARKING { p: cons(@, nil) }"
   where
     expected = Map.fromList [(Place "p", cons blackToken nil)]
 
