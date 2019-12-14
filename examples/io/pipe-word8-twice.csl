@@ -1,0 +1,53 @@
+INTERFACE {
+  INPUT {
+    firstInput
+    firstOutput
+    secondInput
+    secondOutput
+  }
+}
+
+PLACES {
+  firstWord8
+  firstWritten
+  secondWord8
+  secondWritten
+}
+
+TRANSITION firstRead {
+  MATCH {
+    firstInput: Stream
+  }
+  EFFECTS {
+    firstWord8: readWord8(Stream)
+  }
+}
+
+TRANSITION firstWrite {
+  MATCH {
+    firstOutput: Stream
+    firstWord8: Word8
+  }
+  EFFECTS {
+    firstWritten: writeWord8(Stream, Word8)
+  }
+}
+
+TRANSITION secondRead {
+  MATCH {
+    secondInput: Stream
+  }
+  EFFECTS {
+    secondWord8: readWord8(Stream)
+  }
+}
+
+TRANSITION secondWrite {
+  MATCH {
+    secondOutput: Stream
+    secondWord8: Word8
+  }
+  EFFECTS {
+    secondWritten: writeWord8(Stream, Word8)
+  }
+}

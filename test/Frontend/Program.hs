@@ -351,7 +351,7 @@ effectfulTransitionTests = testGroup "Effectful Transitions"
     ]
 
 nonOverlappingPatterns :: Assertion
-nonOverlappingPatterns = case parseCsl "PLACES { s p r } TRANSITION e1 { MATCH { s: S p: nil } EFFECTS { r: writeWord8(S, 0x45) } } TRANSITION e2 { MATCH { s: S p: cons(_, _) } EFFECTS { p: writeWord8(S, 0x4E) } }" of
+nonOverlappingPatterns = case parseCsl "PLACES { s p r } TRANSITION e1 { MATCH { s: S p: nil } EFFECTS { r: writeWord8(S, 0x45) } } TRANSITION e2 { MATCH { s: S p: cons(_, _) } EFFECTS { r: writeWord8(S, 0x4E) } }" of
     Left errors -> assertFailure $ show errors
     Right _ -> return ()
 

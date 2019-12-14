@@ -23,8 +23,8 @@ tests = testGroup "Firing Rule"
 
 unmarkedPreset :: Assertion
 unmarkedPreset = do
-    False @=? isEnabled emptyMarking t
-    fire emptyMarking t >>= (Nothing @=?)
+    False @=? isEnabled t emptyMarking
+    fire t emptyMarking >>= (Nothing @=?)
   where
     t = (mkTransition "t")
         { patterns = Map.fromList [(Place "p1", WildcardPattern)]
@@ -33,8 +33,8 @@ unmarkedPreset = do
 
 markedProductionPlace :: Assertion
 markedProductionPlace = do
-    False @=? isEnabled marking t
-    fire marking t >>= (Nothing @=?)
+    False @=? isEnabled t marking
+    fire t marking >>= (Nothing @=?)
   where
     marking = Map.fromList [(Place "p1", nil), (Place "p2", nil)]
     t = (mkTransition "t")
@@ -44,8 +44,8 @@ markedProductionPlace = do
 
 markedEffectPlace :: Assertion
 markedEffectPlace = do
-    False @=? isEnabled marking t
-    fire marking t >>= (Nothing @=?)
+    False @=? isEnabled t marking
+    fire t marking >>= (Nothing @=?)
   where
     marking = Map.fromList [(Place "p1", nil), (Place "p2", nil)]
     t = (mkTransition "t")
@@ -56,8 +56,8 @@ markedEffectPlace = do
 
 noPreset :: Assertion
 noPreset = do
-    True @=? isEnabled emptyMarking t
-    fire emptyMarking t >>= (Just expectedMarking @=?)
+    True @=? isEnabled t emptyMarking
+    fire t emptyMarking >>= (Just expectedMarking @=?)
   where
     place = Place "p"
     t = (mkTransition "t")
@@ -67,8 +67,8 @@ noPreset = do
 
 noPostset :: Assertion
 noPostset = do
-    True @=? isEnabled marking t
-    fire marking t >>= (Just expectedMarking @=?)
+    True @=? isEnabled t marking
+    fire t marking >>= (Just expectedMarking @=?)
   where
     marking = Map.fromList [(Place "p", nil)]
     t = (mkTransition "t")
@@ -78,8 +78,8 @@ noPostset = do
 
 noMatch :: Assertion
 noMatch = do
-    False @=? isEnabled marking t
-    fire marking t >>= (Nothing @=?)
+    False @=? isEnabled t marking
+    fire t marking >>= (Nothing @=?)
   where
     marking = Map.fromList [(Place "p1", nil)]
     t = (mkTransition "t")
@@ -89,8 +89,8 @@ noMatch = do
 
 sling :: Assertion
 sling = do
-    True @=? isEnabled marking t
-    fire marking t >>= (Just expectedMarking @=?)
+    True @=? isEnabled t marking
+    fire t marking >>= (Just expectedMarking @=?)
   where
     var = Var "V"
     marking = Map.fromList [(Place "p", nil)]
@@ -102,8 +102,8 @@ sling = do
 
 matchAll :: Assertion
 matchAll = do
-    True @=? isEnabled marking t
-    fire marking t >>= (Just expectedMarking @=?)
+    True @=? isEnabled t marking
+    fire t marking >>= (Just expectedMarking @=?)
   where
     p2 = Place "p2"
     var = Var "V"
@@ -117,8 +117,8 @@ matchAll = do
 
 missingVariable :: Assertion
 missingVariable = do
-    True @=? isEnabled marking t
-    fire marking t >>= (Nothing @=?)
+    True @=? isEnabled t marking
+    fire t marking >>= (Nothing @=?)
   where
     p2 = Place "p2"
     marking = Map.fromList [(Place "p1", nil)]
