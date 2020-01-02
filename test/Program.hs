@@ -16,25 +16,25 @@ tests = testGroup "Program"
     ]
 
 emptyInterfaceWithoutInternalPlaces :: Assertion
-emptyInterfaceWithoutInternalPlaces = Set.empty @=? places empty
+emptyInterfaceWithoutInternalPlaces = Set.empty @=? netPlaces emptyNet
 
 nonEmptyInterfaceWithoutInternalPlaces :: Assertion
-nonEmptyInterfaceWithoutInternalPlaces = Set.union inputPlaces outputPlaces @=? places program
+nonEmptyInterfaceWithoutInternalPlaces = Set.union inputPlaces outputPlaces @=? netPlaces net
   where
-    program = empty { interface = Interface inputPlaces outputPlaces }
-    inputPlaces = Set.fromList [Place "input1", Place "input2"]
-    outputPlaces = Set.fromList [Place "output"]
+    net = emptyNet { interface = Interface inputPlaces outputPlaces }
+    inputPlaces = Set.fromList [LocalPlace "input1", LocalPlace "input2"]
+    outputPlaces = Set.fromList [LocalPlace "output"]
 
 emptyInterfaceWithInternalPlaces :: Assertion
-emptyInterfaceWithInternalPlaces = internal @=? places program
+emptyInterfaceWithInternalPlaces = internal @=? netPlaces net
   where
-    program = empty { internalPlaces = internal }
-    internal = Set.fromList [Place "x", Place "y", Place "z"]
+    net = emptyNet { internalPlaces = internal }
+    internal = Set.fromList [LocalPlace "x", LocalPlace "y", LocalPlace "z"]
 
 nonEmptyInterfaceWithInternalPlaces :: Assertion
-nonEmptyInterfaceWithInternalPlaces = Set.unions [internal, inputPlaces, outputPlaces] @=? places program
+nonEmptyInterfaceWithInternalPlaces = Set.unions [internal, inputPlaces, outputPlaces] @=? netPlaces net
   where
-    program = empty { interface = Interface inputPlaces outputPlaces, internalPlaces = internal }
-    inputPlaces = Set.fromList [Place "input1", Place "input2"]
-    outputPlaces = Set.fromList [Place "output"]
-    internal = Set.fromList [Place "x", Place "y", Place "z"]
+    net = emptyNet { interface = Interface inputPlaces outputPlaces, internalPlaces = internal }
+    inputPlaces = Set.fromList [LocalPlace "input1", LocalPlace "input2"]
+    outputPlaces = Set.fromList [LocalPlace "output"]
+    internal = Set.fromList [LocalPlace "x", LocalPlace "y", LocalPlace "z"]

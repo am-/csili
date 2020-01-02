@@ -2,11 +2,22 @@
 
 module Csili.Program
 ( Program(..)
-, empty
+, emptyProgram
+
+, Net(..)
+, TemplateName(..)
+, TemplateInstance(..)
+, emptyNet
 , emptyInternalPlaces
 , emptyTransitions
 , emptyMarking
-, places
+, adressablePlaces
+, produceOnlyPlaces
+, consumeOnlyPlaces
+, existingPlaces
+, netPlaces
+, isQualified
+, flatten
 
 , Place(..)
 , Transition(..)
@@ -35,7 +46,6 @@ module Csili.Program
 , Symbol(..)
 
 , Marking
-, replaceMarking
 
 , Interface(..)
 , emptyInterface
@@ -48,23 +58,119 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
+import qualified Data.Text as T
 import Data.Text (Text)
 import System.IO (Handle)
+import Data.Maybe (mapMaybe)
 
 data Program = Program
-    { interface :: Interface
+    { mainNet :: Net
+    , templates :: Map TemplateName Net
+    } deriving (Show, Eq)
+
+newtype TemplateName = TemplateName Text
+    deriving (Show, Eq, Ord)
+
+newtype TemplateInstance = TemplateInstance Text
+    deriving (Show, Eq, Ord)
+
+instance Semigroup TemplateInstance where
+    (TemplateInstance name1) <> (TemplateInstance name2) = TemplateInstance (T.concat [name1 , ".", name2])
+
+emptyProgram :: Program
+emptyProgram = Program
+    { mainNet = emptyNet
+    , templates = Map.empty
+    }
+
+data Net = Net
+    { instances :: Map TemplateInstance TemplateName
+    , interface :: Interface
     , internalPlaces :: Set Place
     , initialMarking :: Marking
     , transitions :: Set Transition
     } deriving (Show, Eq)
 
-places :: Program -> Set Place
-places program = Set.unions [inputPlaces, outputPlaces, internalPlaces program]
+flatten :: Map TemplateName Net -> Net -> Maybe Net
+flatten templateMap net = embed <$> instantiatedTemplates
   where
-    inputPlaces = input $ interface program
-    outputPlaces = output $ interface program
+    instantiatedTemplates = traverse (uncurry (instantiateTemplate templateMap)) . Map.toList $ instances net
+    embed templateInstances = net
+        { instances = Map.empty
+        , interface = interface net
+        , internalPlaces = Set.union (internalPlaces net) . Set.unions $ map netPlaces templateInstances
+        , initialMarking = Map.union (initialMarking net) . Map.unions $ map initialMarking templateInstances
+        , transitions = Set.union (transitions net) . Set.unions $ map transitions templateInstances
+        }
 
-newtype TransitionName = TransitionName Text
+instantiateTemplate :: Map TemplateName Net -> TemplateInstance -> TemplateName -> Maybe Net
+instantiateTemplate templateMap templateInstance templateName = do
+    net <- Map.lookup templateName templateMap
+    qualifyNet templateInstance <$> flatten templateMap net
+
+instantiateTemplates :: Map TemplateName Net -> Map TemplateInstance TemplateName -> [Net]
+instantiateTemplates templateMap = mapMaybe (uncurry (instantiateTemplate templateMap)) . Map.toList
+
+existingPlaces :: Program -> Net -> Set Place
+existingPlaces program net = Set.union (netPlaces net) (Set.unions placeSets)
+  where
+    placeSets = map netPlaces $ instantiateTemplates (templates program) (instances net)
+
+adressablePlaces :: Program -> Net -> Set Place
+adressablePlaces program net = Set.union (netPlaces net) (Set.unions interfaces)
+  where
+    interfaces = map extractInterface $ instantiateTemplates (templates program) (instances net)
+    extractInterface = (Set.union <$> input <*> output) . interface
+
+consumeOnlyPlaces :: Program -> Net -> Set Place
+consumeOnlyPlaces program net = Set.union
+    (input $ interface net)
+    (Set.unions . map (output . interface) $ instantiateTemplates (templates program) (instances net))
+
+produceOnlyPlaces :: Program -> Net -> Set Place
+produceOnlyPlaces program net = Set.union
+    (output $ interface net)
+    (Set.unions . map (input . interface) $ instantiateTemplates (templates program) (instances net))
+
+qualifyNet :: TemplateInstance -> Net -> Net
+qualifyNet templateInstance net = net
+    { instances = Map.mapKeys (templateInstance <>) $ instances net
+    , interface = (interface net)
+        { input = Set.map (qualifyPlace templateInstance) . input $ interface net
+        , output = Set.map (qualifyPlace templateInstance) . output $ interface net
+        }
+    , internalPlaces = Set.map (qualifyPlace templateInstance) $ internalPlaces net
+    , initialMarking = Map.mapKeys (qualifyPlace templateInstance) $ initialMarking net
+    , transitions = Set.map (qualifyTransition templateInstance) $ transitions net
+    }
+
+qualifyTransition :: TemplateInstance -> Transition -> Transition
+qualifyTransition templateInstance transition = transition
+    { name = qualifyTransitionName $ name transition
+    , patterns = Map.mapKeys (qualifyPlace templateInstance) $ patterns transition
+    , productions = Map.mapKeys (qualifyPlace templateInstance) $ productions transition
+    }
+  where
+    qualifyTransitionName = \case
+        LocalTransition transitionName -> TemplateTransition templateInstance transitionName
+        TemplateTransition existingInstance transitionName -> TemplateTransition (templateInstance <> existingInstance) transitionName
+
+qualifyPlace :: TemplateInstance -> Place -> Place
+qualifyPlace templateInstance = \case
+    LocalPlace placeName -> TemplatePlace templateInstance placeName
+    TemplatePlace existingInstance placeName -> TemplatePlace (templateInstance <> existingInstance) placeName
+
+isQualified :: Place -> Bool
+isQualified = \case
+    LocalPlace _ -> False
+    TemplatePlace _ _ -> True
+
+netPlaces :: Net -> Set Place
+netPlaces net = Set.unions [input $ interface net, output $ interface net, internalPlaces net]
+
+data TransitionName
+    = LocalTransition Text
+    | TemplateTransition TemplateInstance Text
     deriving (Show, Eq, Ord)
 
 data Transition = Transition
@@ -75,7 +181,7 @@ data Transition = Transition
 
 mkTransition :: Text -> Transition
 mkTransition transitionName = Transition
-    (TransitionName transitionName)
+    (LocalTransition transitionName)
     Map.empty
     Map.empty
 
@@ -124,7 +230,9 @@ newtype Symbol = Symbol Text
 newtype Var = Var Text
     deriving (Show, Eq, Ord)
 
-newtype Place = Place Text
+data Place
+    = LocalPlace Text
+    | TemplatePlace TemplateInstance Text
     deriving (Show, Eq, Ord)
 
 data Token
@@ -184,22 +292,23 @@ data Effect
 
 type Marking = Map Place Token
 
-empty :: Program
-empty = Program
-    { interface = emptyInterface
+emptyNet :: Net
+emptyNet = Net
+    { instances = emptyInstances
+    , interface = emptyInterface
     , internalPlaces = emptyInternalPlaces
     , initialMarking = emptyMarking
     , transitions = emptyTransitions
     }
+
+emptyInstances :: Map TemplateInstance TemplateName
+emptyInstances = Map.empty
 
 emptyInternalPlaces :: Set Place
 emptyInternalPlaces = Set.empty
 
 emptyMarking :: Marking
 emptyMarking = Map.empty
-
-replaceMarking :: Program -> Marking -> Program
-replaceMarking program marking = program { initialMarking = marking }
 
 emptyTransitions :: Set Transition
 emptyTransitions = Set.empty

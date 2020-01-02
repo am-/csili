@@ -116,22 +116,22 @@ emptyInputAndOutputInterface = Right expectation @=? parseOnly interfaceBlock "I
 emptyInputInterface :: Assertion
 emptyInputInterface = Right expectation @=? parseOnly interfaceBlock "INTERFACE { OUTPUT { output } }"
   where
-    expectation = ([], ["output"])
+    expectation = ([], [["output"]])
 
 emptyOutputInterface :: Assertion
 emptyOutputInterface = Right expectation @=? parseOnly interfaceBlock "INTERFACE { INPUT { input } }"
   where
-    expectation = (["input"], [])
+    expectation = ([["input"]], [])
 
 oneToOneInterface :: Assertion
 oneToOneInterface = Right expectation @=? parseOnly interfaceBlock "INTERFACE { INPUT { input } OUTPUT { output } }"
   where
-    expectation = (["input"], ["output"])
+    expectation = ([["input"]], [["output"]])
 
 twoToTwoInterface :: Assertion
 twoToTwoInterface = Right expectation @=? parseOnly interfaceBlock "INTERFACE { INPUT { input1 input2 } OUTPUT { output1 output2 } }"
   where
-    expectation = (["input1", "input2"], ["output1", "output2"])
+    expectation = ([["input1"], ["input2"]], [["output1"], ["output2"]])
 
 placeBlocks :: TestTree
 placeBlocks = testGroup "Places"
@@ -147,7 +147,7 @@ emptyPlaces = Right expectation @=? parseOnly placesBlock "PLACES {}"
 nonEmptyPlaces :: Assertion
 nonEmptyPlaces = Right expectation @=? parseOnly placesBlock "PLACES { p q }"
   where
-    expectation = ["p", "q"]
+    expectation = [["p"], ["q"]]
 
 markingBlocks :: TestTree
 markingBlocks = testGroup "Marking"
@@ -163,7 +163,7 @@ emptyMarking = Right expectation @=? parseOnly markingBlock "MARKING {}"
 nonEmptyMarking :: Assertion
 nonEmptyMarking = Right expectation @=? parseOnly markingBlock "MARKING { input1: true input2: false }"
   where
-    expectation = [("input1", Function "true" []), ("input2", Function "false" [])]
+    expectation = [(["input1"], Function "true" []), (["input2"], Function "false" [])]
 
 transitionBlocks :: TestTree
 transitionBlocks = testGroup "Transition"
@@ -187,14 +187,14 @@ infiniteProducer = Right expectation @=? parseOnly transitionBlock "TRANSITION p
   where
     expectation = ("produce", (match, produce, effects))
     match = []
-    produce = [("output", Function "true" [])]
+    produce = [(["output"], Function "true" [])]
     effects = []
 
 unconditionalEater :: Assertion
 unconditionalEater = Right expectation @=? parseOnly transitionBlock "TRANSITION eat { MATCH { input: _ } }"
   where
     expectation = ("eat", (match, produce, effects))
-    match = [("input", Wildcard)]
+    match = [(["input"], Wildcard)]
     produce = []
     effects = []
 
@@ -202,14 +202,14 @@ commonTransition :: Assertion
 commonTransition = Right expectation @=? parseOnly transitionBlock "TRANSITION firstTrue { MATCH { input1: true input2: B } PRODUCE { output: B } }"
   where
     expectation = ("firstTrue", (match, produce, effects))
-    match = [("input1", Function "true" []), ("input2", Variable "B")]
-    produce = [("output", Variable "B")]
+    match = [(["input1"], Function "true" []), (["input2"], Variable "B")]
+    produce = [(["output"], Variable "B")]
     effects = []
 
 writingTransition :: Assertion
 writingTransition = Right expectation @=? parseOnly transitionBlock "TRANSITION write { MATCH { input: B } EFFECTS { output: writeWord8(B) } }"
   where
     expectation = ("write", (match, produce, effects))
-    match = [("input", Variable "B")]
+    match = [(["input"], Variable "B")]
     produce = []
-    effects = [("output", Function "writeWord8" [Variable "B"])]
+    effects = [(["output"], Function "writeWord8" [Variable "B"])]

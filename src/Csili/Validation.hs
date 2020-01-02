@@ -12,45 +12,87 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Validation (Validation(..))
 import Data.Maybe (mapMaybe)
+import Data.Map.Strict (Map)
 
 import Csili.Program
 
 data ValidationError
-    = OverlappingInputAndOutput Place
+    = InstanceOfUnknownTemplate TemplateInstance TemplateName
+    | OverlappingInputAndOutput Place
+    | RedeclarationOfPlace Place
     | InternalPlaceInsideInterface Place
     | TokenOnInexistentPlace Place
-    | TokenOnInterfacePlace Place
+    | TokenOnHiddenPlace Place
+    | TokenOnConsumeOnlyPlace Place
     | DuplicateVariableInPattern TransitionName Place Var
     | DuplicateVariableInDifferentPatterns TransitionName Var (Set Place)
-    | ConsumingFromOutputPlace TransitionName Place
+    | ConsumingFromProduceOnlyPlace TransitionName Place
     | ConsumingFromInexistentPlace TransitionName Place
+    | ConsumingFromHiddenPlace TransitionName Place
     | UnknownVariableInSubstitution TransitionName Place (Set Var)
-    | ConstructingOnInputPlace TransitionName Place
+    | ConstructingOnConsumeOnlyPlace TransitionName Place
     | ConstructingOnInexistentPlace TransitionName Place
-    | EffectOnInputPlace TransitionName Place
+    | ConstructingOnHiddenPlace TransitionName Place
+    | EffectOnConsumeOnlyPlace TransitionName Place
     | EffectOnInexistentPlace TransitionName Place
+    | EffectOnHiddenPlace TransitionName Place
     | StructuralConflictWithEffectfulTransition TransitionName (Set TransitionName)
     deriving (Show, Eq, Ord)
 
 validateProgram :: Program -> Validation [ValidationError] Program
-validateProgram program@(Program {..})= toValidation $ concat
-    [ validateInterface interface
-    , validateInternalPlacesAgainstInterface interface internalPlaces
-    , validateInitialMarkingAgainstInterfacePlaces interface initialMarking
-    , validateInitialMarkingAgainstInternalPlaces interface internalPlaces initialMarking
-    , validateTransitions transitions
-    , concatMap (validateTransitionAgainstInterface interface) . Set.toList $ transitions
-    , concatMap (validateTransitionAgainstPlaces (places program)) . Set.toList $ transitions
+validateProgram program = toValidation $ concat
+    [ validateNet program (mainNet program)
+    , concatMap (validateNet program) (templates program)
     ]
   where
     toValidation = \case
         [] -> pure program
         errors -> Failure errors
 
+validateNet :: Program -> Net -> [ValidationError]
+validateNet program net@(Net {..}) = concat
+    [ validateInstances (Map.keysSet $ templates program) instances
+    , validateInterface interface
+    , validateInternalPlaces interface internalPlaces
+    , validateInitialMarking existing adressable consumeOnly initialMarking
+    , validateTransitions transitions
+    , concatMap (validateTransitionAgainstPlaces existing adressable consumeOnly produceOnly) $ transitions
+    ]
+  where
+    adressable = adressablePlaces program net
+    existing = existingPlaces program net
+    consumeOnly = consumeOnlyPlaces program net
+    produceOnly = produceOnlyPlaces program net
+
+validateInstances :: Set TemplateName -> Map TemplateInstance TemplateName -> [ValidationError]
+validateInstances definedTemplates = map (uncurry InstanceOfUnknownTemplate) . Map.assocs . Map.filter (flip Set.notMember definedTemplates)
+
+validateInterface :: Interface -> [ValidationError]
+validateInterface interface = concat
+    [ map OverlappingInputAndOutput . Set.toAscList $ Set.intersection (input interface) (output interface)
+    , map RedeclarationOfPlace . Set.toAscList . Set.filter isQualified $ Set.union (input interface) (output interface)
+    ]
+
+validateInternalPlaces :: Interface -> Set Place -> [ValidationError]
+validateInternalPlaces interface internalPlaces = concat
+    [ map InternalPlaceInsideInterface . Set.toAscList . Set.intersection internalPlaces $ Set.union (input interface) (output interface)
+    , map RedeclarationOfPlace . Set.toAscList $ Set.filter isQualified internalPlaces
+    ]
+
+validateInitialMarking :: Set Place -> Set Place -> Set Place -> Marking -> [ValidationError]
+validateInitialMarking existing adressable consumeOnly marking = concat
+    [ toError TokenOnInexistentPlace $ Set.difference marked existing
+    , toError TokenOnHiddenPlace $ Set.intersection hidden marked
+    , toError TokenOnConsumeOnlyPlace $ Set.intersection marked consumeOnly
+    ]
+  where
+    toError mkError = map mkError . Set.toAscList
+    marked = Map.keysSet marking
+    hidden = Set.difference existing adressable
 
 validateTransitions :: Set Transition -> [ValidationError]
 validateTransitions transitions = concatMap ($ transitions)
-    [ concatMap validateTransition . Set.toList
+    [ concatMap validateTransition
     , validateEffectfulTransitions
     ]
 
@@ -70,39 +112,17 @@ validateEffectfulTransitions transitions = mapMaybe toError . Set.toAscList $ Se
       where
         conflictingTransitions = Set.filter (areStructurallyConflicting transition) transitions
 
-validateTransitionAgainstInterface :: Interface -> Transition -> [ValidationError]
-validateTransitionAgainstInterface interface transition = concat
-    [ toError ConsumingFromOutputPlace . Set.intersection preset $ output interface
-    , toError ConstructingOnInputPlace . Set.intersection constructionPlaces $ input interface
-    , toError EffectOnInputPlace . Set.intersection effectPlaces $ input interface
-    ]
-  where
-    preset = Map.keysSet $ patterns transition
-    constructionPlaces = Map.keysSet $ constructions transition
-    effectPlaces = Map.keysSet $ effects transition
-    toError mkError = map (mkError $ name transition) . Set.toAscList
-
-validateInitialMarkingAgainstInterfacePlaces :: Interface -> Marking -> [ValidationError]
-validateInitialMarkingAgainstInterfacePlaces interface marking = concatMap (toError . Set.intersection markedPlaces)
-    [ output interface
-    , input interface
-    ]
-  where
-    toError = map TokenOnInterfacePlace . Set.toAscList
-    markedPlaces = Map.keysSet marking
-
-validateInitialMarkingAgainstInternalPlaces :: Interface -> Set Place -> Marking -> [ValidationError]
-validateInitialMarkingAgainstInternalPlaces interface internalPlaces marking = toError (Set.difference markedPlaces definedPlaces)
-  where
-    toError = map TokenOnInexistentPlace . Set.toAscList
-    markedPlaces = Map.keysSet marking
-    definedPlaces = Set.unions [internalPlaces, input interface, output interface]
-
-validateTransitionAgainstPlaces :: Set Place -> Transition -> [ValidationError]
-validateTransitionAgainstPlaces definedPlaces transition = concat
-    [ toError ConsumingFromInexistentPlace $ Set.difference preset definedPlaces
-    , toError ConstructingOnInexistentPlace $ Set.difference constructionPlaces definedPlaces
-    , toError EffectOnInexistentPlace $ Set.difference effectPlaces definedPlaces
+validateTransitionAgainstPlaces :: Set Place -> Set Place -> Set Place -> Set Place -> Transition -> [ValidationError]
+validateTransitionAgainstPlaces existing adressable consumeOnly produceOnly transition = concat
+    [ toError ConsumingFromInexistentPlace $ Set.difference preset existing
+    , toError ConsumingFromHiddenPlace $ Set.intersection (Set.difference preset adressable) existing
+    , toError ConsumingFromProduceOnlyPlace $ Set.intersection preset produceOnly
+    , toError ConstructingOnInexistentPlace $ Set.difference constructionPlaces existing
+    , toError ConstructingOnHiddenPlace $ Set.intersection (Set.difference constructionPlaces adressable) existing
+    , toError ConstructingOnConsumeOnlyPlace $ Set.intersection constructionPlaces consumeOnly
+    , toError EffectOnInexistentPlace $ Set.difference effectPlaces existing
+    , toError EffectOnHiddenPlace $ Set.intersection (Set.difference effectPlaces adressable) existing
+    , toError EffectOnConsumeOnlyPlace $ Set.intersection effectPlaces consumeOnly
     ]
   where
     preset = Map.keysSet $ patterns transition
@@ -140,19 +160,6 @@ validateVariablesInProductions transition = mapMaybe toError . Map.assocs $ prod
         | otherwise = Just $ UnknownVariableInSubstitution (name transition) place unknownVariables
       where
         unknownVariables = Set.difference (collect production) definedVariables
-
-validateInternalPlacesAgainstInterface :: Interface -> Set Place -> [ValidationError]
-validateInternalPlacesAgainstInterface interface internalPlaces = concatMap (map InternalPlaceInsideInterface . Set.toAscList)
-    [ Set.intersection internalPlaces $ input interface
-    , Set.intersection internalPlaces $ output interface
-    ]
-
-validateInterface :: Interface -> [ValidationError]
-validateInterface interface
-    | Set.null overlappingPlaces = []
-    | otherwise = map OverlappingInputAndOutput $ Set.toAscList overlappingPlaces
-  where
-    overlappingPlaces = Set.intersection (input interface) (output interface)
 
 findDuplicates :: Ord a => [a] -> [a]
 findDuplicates elements = elements \\ nubOrd elements

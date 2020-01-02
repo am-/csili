@@ -5,6 +5,7 @@ module Csili.Frontend.Conversion
 , convert
 ) where
 
+import Data.Bifunctor (first)
 import Data.Containers.ListUtils (nubOrd)
 import Data.List ((\\))
 import Data.Text (Text)
@@ -13,13 +14,17 @@ import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Validation (Validation(..), bindValidation)
+import Data.Maybe (mapMaybe)
 
 import Csili.Frontend.SyntaxTree (SyntaxTree, Term(..))
 import qualified Csili.Frontend.SyntaxTree as SyntaxTree
 import Csili.Program hiding (effects)
 
 data ConversionError
-    = DuplicateInputPlace Place
+    = DuplicateTemplate TemplateName
+    | CyclicTemplates [TemplateName]
+    | DuplicateInstance TemplateInstance
+    | DuplicateInputPlace Place
     | DuplicateOutputPlace Place
     | DuplicateInternalPlace Place
     | DuplicateToken Place
@@ -40,68 +45,104 @@ type Actual = Int
 
 convert :: SyntaxTree -> Validation [ConversionError] Program
 convert tree = Program
-    <$> toInterface tree
-    <*> toInternalPlaces tree
-    <*> toInitialMarking tree
-    <*> toTransitions tree
+    <$> toNet (SyntaxTree.mainNet tree)
+    <*> bindValidation (toTemplates $ SyntaxTree.nets tree) ensureAcyclicity
 
-toInterface :: SyntaxTree -> Validation [ConversionError] Interface
-toInterface tree = Interface
-    <$> (toPlaces DuplicateInputPlace . fst $ SyntaxTree.interface tree)
-    <*> (toPlaces DuplicateOutputPlace . snd $ SyntaxTree.interface tree)
+toTemplates :: [(Text, SyntaxTree.Net)] -> Validation [ConversionError] (Map TemplateName Net)
+toTemplates nets = case findDuplicates (map fst nets) of
+    [] -> traverse toNet . Map.fromList $ map (first TemplateName) nets
+    duplicates -> Failure $ map (DuplicateTemplate . TemplateName) duplicates
 
-toInternalPlaces :: SyntaxTree -> Validation [ConversionError] (Set Place)
+ensureAcyclicity :: Map TemplateName Net -> Validation [ConversionError] (Map TemplateName Net)
+ensureAcyclicity templateMap = case mapMaybe (toCycle Set.empty) . Set.elems $ Map.keysSet templateMap of
+    [] -> pure templateMap
+    cycles -> Failure $ map CyclicTemplates cycles
+  where
+    toCycle visited templateName
+        | Set.member templateName visited = Just [templateName]
+        | otherwise = case instances <$> Map.lookup templateName templateMap of
+            Nothing -> Nothing
+            Just instanceMap
+                | Map.null instanceMap -> Nothing
+                | otherwise -> case mapMaybe (toCycle (Set.insert templateName visited)) $ Map.elems instanceMap of
+                    [] -> Nothing
+                    cyclicTemplates:_ -> Just (templateName : cyclicTemplates)
+
+toNet :: SyntaxTree.Net -> Validation [ConversionError] Net
+toNet net = Net
+    <$> toInstances net
+    <*> toInterface net
+    <*> toInternalPlaces net
+    <*> toInitialMarking net
+    <*> toTransitions net
+
+toInstances :: SyntaxTree.Net -> Validation [ConversionError] (Map TemplateInstance TemplateName)
+toInstances net = case findDuplicates . map fst $ SyntaxTree.instances net of
+    [] -> pure . Map.fromList . map ((,) <$> TemplateInstance . fst <*> TemplateName . snd) $ SyntaxTree.instances net
+    duplicates -> Failure $ map (DuplicateInstance . TemplateInstance) duplicates
+
+toInterface :: SyntaxTree.Net -> Validation [ConversionError] Interface
+toInterface net = Interface
+    <$> (toPlaces DuplicateInputPlace . fst $ SyntaxTree.interface net)
+    <*> (toPlaces DuplicateOutputPlace . snd $ SyntaxTree.interface net)
+
+toInternalPlaces :: SyntaxTree.Net -> Validation [ConversionError] (Set Place)
 toInternalPlaces = toPlaces DuplicateInternalPlace . SyntaxTree.internalPlaces
 
-toPlaces :: (Place -> ConversionError) -> [Text] -> Validation [ConversionError] (Set Place)
+toPlaces :: (Place -> ConversionError) -> [SyntaxTree.Place] -> Validation [ConversionError] (Set Place)
 toPlaces mkError declarations = case findDuplicates declarations of
-    [] -> pure . Set.fromList $ map Place declarations
-    duplicates -> Failure $ map (mkError . Place) duplicates
+    [] -> Set.fromList <$> traverse toPlace declarations
+    duplicates -> bindValidation (traverse (fmap mkError . toPlace) duplicates) Failure
 
-toInitialMarking :: SyntaxTree -> Validation [ConversionError] Marking
-toInitialMarking tree = case findDuplicates . map fst $ SyntaxTree.marking tree of
-    [] -> Map.fromList <$> traverse convertPair (SyntaxTree.marking tree)
-    duplicates -> Failure $ map (DuplicateToken . Place) duplicates
+toPlace :: SyntaxTree.Place -> Validation [ConversionError] Place
+toPlace components = pure $ case (init components, last components) of
+    ([], place) -> LocalPlace place
+    (instanceName, place) -> TemplatePlace (TemplateInstance (foldl1 (<>) instanceName)) place
+
+toInitialMarking :: SyntaxTree.Net -> Validation [ConversionError] Marking
+toInitialMarking net = case findDuplicates . map fst $ SyntaxTree.marking net of
+    [] -> Map.fromList <$> traverse convertPair (SyntaxTree.marking net)
+    duplicates -> bindValidation (traverse (fmap DuplicateToken . toPlace) duplicates) Failure
   where
-    convertPair (place, term) = (,) <$> pure (Place place) <*> toToken (Place place) term
+    convertPair (placeName, term) = bindValidation (toPlace placeName) (\place -> (,) place <$> toToken place term)
 
 toToken :: Place -> Term -> Validation [ConversionError] Token
 toToken place = \case
     Function symbol terms -> FunctionToken (Symbol symbol) <$> traverse (toToken place) terms
     term@_ -> Failure [InvalidToken place term]
 
-toTransitions :: SyntaxTree -> Validation [ConversionError] (Set Transition)
-toTransitions tree = case findDuplicates . map fst $ SyntaxTree.transitions tree of
-    [] -> Set.fromList <$> traverse toTransition (SyntaxTree.transitions tree)
-    duplicates -> Failure $ map (DuplicateTransition . TransitionName) duplicates
+toTransitions :: SyntaxTree.Net -> Validation [ConversionError] (Set Transition)
+toTransitions net = case findDuplicates . map fst $ SyntaxTree.transitions net of
+    [] -> Set.fromList <$> traverse toTransition (SyntaxTree.transitions net)
+    duplicates -> Failure $ map (DuplicateTransition . LocalTransition) duplicates
 
 toTransition :: (Text, ([SyntaxTree.Pattern], [SyntaxTree.ConstructionRule], [SyntaxTree.Effect])) -> Validation [ConversionError] Transition
 toTransition (name, (patterns, constructionRules, effects)) = Transition
-    <$> pure (TransitionName name)
-    <*> processTransitionBlock toPattern DuplicatePattern (TransitionName name) patterns
+    <$> pure (LocalTransition name)
+    <*> processTransitionBlock toPattern DuplicatePattern (LocalTransition name) patterns
     <*> toProductions name constructionRules effects
 
 toProductions :: Text -> [SyntaxTree.ConstructionRule] -> [SyntaxTree.Effect] -> Validation [ConversionError] (Map Place Production)
 toProductions name constructionRules effects = bindValidation separatedProductions (uncurry combine)
   where
     separatedProductions = (,)
-        <$> processTransitionBlock toConstructionRule DuplicateProduction (TransitionName name) constructionRules
-        <*> processTransitionBlock toEffect DuplicateEffect (TransitionName name) effects
+        <$> processTransitionBlock toConstructionRule DuplicateProduction (LocalTransition name) constructionRules
+        <*> processTransitionBlock toEffect DuplicateEffect (LocalTransition name) effects
     combine constructionMap effectMap = case Set.toAscList . Set.intersection (Map.keysSet constructionMap) $ Map.keysSet effectMap of
         [] -> pure $ Map.union (Map.map Construct constructionMap) (Map.map Evaluate effectMap)
-        duplicates -> Failure $ map (EffectOnProductionPlace $ TransitionName name) duplicates
+        duplicates -> Failure $ map (EffectOnProductionPlace $ LocalTransition name) duplicates
 
 processTransitionBlock
     :: (TransitionName -> Place -> Term -> Validation [ConversionError] convertedTerm)
     -> (TransitionName -> Place -> ConversionError)
     -> TransitionName
-    -> [(Text, Term)]
+    -> [(SyntaxTree.Place, Term)]
     -> Validation [ConversionError] (Map Place convertedTerm)
 processTransitionBlock convertTerm mkDuplicateError name mapping = case findDuplicates (map fst mapping) of
       [] -> Map.fromList <$> traverse convertPair mapping
-      duplicates -> Failure $ map (mkDuplicateError name . Place) duplicates
+      duplicates -> bindValidation (traverse (fmap (mkDuplicateError name) . toPlace) duplicates) Failure
     where
-      convertPair (place, term) = (,) <$> pure (Place place) <*> convertTerm name (Place place) term
+      convertPair (placeName, term) = bindValidation (toPlace placeName) (\place -> (,) place <$> convertTerm name place term)
 
 toPattern :: TransitionName -> Place -> Term -> Validation [ConversionError] Pattern
 toPattern _name _place = \case

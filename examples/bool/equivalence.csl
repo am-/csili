@@ -1,0 +1,194 @@
+INSTANCES {
+  leftToRight: implication
+  rightToLeft: implication
+  and: and
+}
+
+INTERFACE {
+  INPUT {
+    input1
+    input2
+  }
+  OUTPUT {
+    output
+  }
+}
+
+TRANSITION callImplications {
+  MATCH {
+    input1: A
+    input2: B
+  }
+  PRODUCE {
+    leftToRight.input1: A
+    leftToRight.input2: B
+    rightToLeft.input1: B
+    rightToLeft.input2: A
+  }
+}
+
+TRANSITION callAnd {
+  MATCH {
+    leftToRight.output: LeftImpliesRight
+    rightToLeft.output: RightImpliesLeft
+  }
+  PRODUCE {
+    and.input1: LeftImpliesRight
+    and.input2: RightImpliesLeft
+  }
+}
+
+TRANSITION return {
+  MATCH {
+    and.output: Result
+  }
+  PRODUCE {
+    output: Result
+  }
+}
+
+TEMPLATE implication {
+  INSTANCES {
+    not: not
+    or: or
+  }
+
+  INTERFACE {
+    INPUT {
+      input1
+      input2
+    }
+    OUTPUT {
+      output
+    }
+  }
+
+  TRANSITION negate {
+    MATCH {
+      input1: A
+    }
+    PRODUCE {
+      not.input: A
+    }
+  }
+
+  TRANSITION leftOperand {
+    MATCH {
+      not.output: NotA
+    }
+    PRODUCE {
+      or.input1: NotA
+    }
+  }
+
+  TRANSITION rightOperand {
+    MATCH {
+      input2: B
+    }
+    PRODUCE {
+      or.input2: B
+    }
+  }
+
+  TRANSITION imply {
+    MATCH {
+      or.output: AImpliesB
+    }
+    PRODUCE {
+      output: AImpliesB
+    }
+  }
+}
+
+TEMPLATE not {
+  INTERFACE {
+    INPUT {
+      input
+    }
+    OUTPUT {
+      output
+    }
+  }
+
+  TRANSITION notTrue {
+    MATCH {
+      input: true
+    }
+    PRODUCE {
+      output: false
+    }
+  }
+
+  TRANSITION notFalse {
+    MATCH {
+      input: false
+    }
+    PRODUCE {
+      output: true
+    }
+  }
+}
+
+TEMPLATE and {
+  INTERFACE {
+    INPUT {
+      input1
+      input2
+    }
+    OUTPUT {
+      output
+    }
+  }
+
+  TRANSITION firstTrue {
+    MATCH {
+      input1: true
+      input2: B
+    }
+    PRODUCE {
+      output: B
+    }
+  }
+
+  TRANSITION firstFalse {
+    MATCH {
+      input1: false
+      input2: B
+    }
+    PRODUCE {
+      output: false
+    }
+  }
+}
+
+TEMPLATE or {
+  INTERFACE {
+    INPUT {
+      input1
+      input2
+    }
+    OUTPUT {
+      output
+    }
+  }
+
+  TRANSITION firstTrue {
+    MATCH {
+      input1: true
+      input2: B
+    }
+    PRODUCE {
+      output: true
+    }
+  }
+
+  TRANSITION firstFalse {
+    MATCH {
+      input1: false
+      input2: B
+    }
+    PRODUCE {
+      output: B
+    }
+  }
+}

@@ -23,10 +23,8 @@ file = clean *> syntaxTree <* endOfInput
 
 syntaxTree :: Parser SyntaxTree
 syntaxTree = SyntaxTree
-    <$> option ([], []) (rightClean interfaceBlock)
-    <*> option [] (rightClean placesBlock)
-    <*> option [] (rightClean markingBlock)
-    <*> many (rightClean transitionBlock)
+    <$> net
+    <*> many template
 
 --------------------------------------------------------------------------------
 -- Terms
@@ -106,37 +104,51 @@ wildcard = const Wildcard <$> (char '_' *> takeWhile isAlphaNum)
 -- Net Structure
 --------------------------------------------------------------------------------
 
-interfaceBlock :: Parser ([Text], [Text])
+net :: Parser Net
+net = Net
+    <$> option [] (rightClean instancesBlock)
+    <*> option ([], []) (rightClean interfaceBlock)
+    <*> option [] (rightClean placesBlock)
+    <*> option [] (rightClean markingBlock)
+    <*> many (rightClean transitionBlock)
+
+template :: Parser (Text, Net)
+template = namedBlock "TEMPLATE" identifier net
+
+instancesBlock :: Parser [(Instance, Template)]
+instancesBlock = unnamedBlock "INSTANCES" (many (assignment (fullClean identifier) (fullClean identifier)))
+
+interfaceBlock :: Parser ([Place], [Place])
 interfaceBlock = unnamedBlock "INTERFACE" $ (,)
     <$> option [] inputBlock
     <*> option [] outputBlock
 
-inputBlock :: Parser [Text]
+inputBlock :: Parser [Place]
 inputBlock = unnamedBlock "INPUT" placeSet
 
-outputBlock :: Parser [Text]
+outputBlock :: Parser [Place]
 outputBlock = unnamedBlock "OUTPUT" placeSet
 
-placesBlock :: Parser [Text]
+placesBlock :: Parser [Place]
 placesBlock = unnamedBlock "PLACES" placeSet
 
-markingBlock :: Parser [(Text, Term)]
+markingBlock :: Parser [(Place, Term)]
 markingBlock = unnamedBlock "MARKING" (placeMap term)
 
-transitionBlock :: Parser (Text, ([(Text, Term)], [(Text, Term)], [(Text, Term)]))
+transitionBlock :: Parser (Text, ([(Place, Term)], [(Place, Term)], [(Place, Term)]))
 transitionBlock = namedBlock "TRANSITION" identifier $ (,,)
     <$> option [] (unnamedBlock "MATCH" (placeMap term))
     <*> option [] (unnamedBlock "PRODUCE" (placeMap term))
     <*> option [] (unnamedBlock "EFFECTS" (placeMap term))
 
-placeSet :: Parser [Text]
-placeSet = many (fullClean identifier)
+place :: Parser Place
+place = qualifiedIdentifier
 
-placeMap :: Parser a -> Parser [(Text, a)]
-placeMap p = many (placeAssignment p)
+placeSet :: Parser [Place]
+placeSet = many place
 
-placeAssignment :: Parser a -> Parser (Text, a)
-placeAssignment p = (,) <$> fullClean identifier <*> (char ':' *> p)
+placeMap :: Parser a -> Parser [(Place, a)]
+placeMap rhs = many (assignment place rhs)
 
 --------------------------------------------------------------------------------
 -- Basic parser
@@ -151,6 +163,9 @@ upperCaseIdentifier = T.cons <$> satisfy isUpper <*> takeWhile isAlphaNum
 lowerCaseIdentifier :: Parser Text
 lowerCaseIdentifier = T.cons <$> satisfy isLower <*> takeWhile isAlphaNum
 
+qualifiedIdentifier :: Parser [Text]
+qualifiedIdentifier = fullClean ((:) <$> identifier <*> many (char '.' *> identifier))
+
 namedBlock :: Text -> Parser a -> Parser b -> Parser (a, b)
 namedBlock keyword ident content = (,)
     <$> (string keyword *> leftClean ident)
@@ -160,7 +175,10 @@ unnamedBlock :: Text -> Parser a -> Parser a
 unnamedBlock keyword content = leftClean (string keyword) *> enclose '{' '}' content
 
 enclose :: Char -> Char -> Parser a -> Parser a
-enclose opener closer parser = leftClean (char opener) *> parser <* leftClean (char closer)
+enclose opener closer parser = leftClean (char opener) *> parser <* leftClean (char closer) <* clean
+
+assignment :: Parser a -> Parser b -> Parser (a, b)
+assignment lhs rhs = (,) <$> lhs <*> (char ':' *> rhs)
 
 functionTerm :: Parser a -> Parser b -> Parser (a, [b])
 functionTerm symbol argument = (,)

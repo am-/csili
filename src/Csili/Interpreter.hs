@@ -22,13 +22,17 @@ import Csili.Interpreter.Word
 import Csili.Program
 
 run :: Program -> Marking -> IO Marking
-run program = fmap calculateFinalMarking . evaluate . replaceMarking program . calculateInitialMarking
+run program = fmap calculateFinalMarking . evaluate . replaceMarking . calculateInitialMarking
   where
-    calculateInitialMarking = Map.union (initialMarking program) . flip Map.restrictKeys (input $ interface program)
-    calculateFinalMarking = flip Map.restrictKeys (output $ interface program)
+    calculateInitialMarking = Map.union (initialMarking net) . flip Map.restrictKeys (input $ interface net)
+    calculateFinalMarking = flip Map.restrictKeys (output $ interface net)
+    net = mainNet program
+    replaceMarking newMarking = program { mainNet = net { initialMarking = newMarking }}
 
 evaluate :: Program -> IO Marking
-evaluate program = go Map.empty (initialMarking program) DList.empty (Set.elems $ transitions program)
+evaluate program = case flatten (templates program) (mainNet program) of
+    Nothing -> return . initialMarking $ mainNet program
+    Just net -> go Map.empty (initialMarking net) DList.empty (Set.elems $ transitions net)
   where
    go promises marking nextCandidates = \case
        []  | Map.null promises -> return marking

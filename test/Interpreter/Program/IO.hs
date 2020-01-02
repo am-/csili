@@ -24,7 +24,7 @@ helloWorldProgram = "examples/io/hello-world.csl"
 helloWorld :: TestTree
 helloWorld = testProgram "Hello World" helloWorldProgram $ \program -> do
     (readHandle, writeHandle) <- createBinaryPipe
-    _ <- run program (Map.singleton (Place "stream") (Resource writeHandle))
+    _ <- run program (Map.singleton (LocalPlace "stream") (Resource writeHandle))
     text <- hGetContents readHandle
     "Hello World!" @=? text
 
@@ -36,7 +36,7 @@ reverseEcho = testProgram "Reverse Echo" reverseEchoProgram $ \program -> do
     (inputReadHandle, inputWriteHandle) <- createBinaryPipe
     hPutStr inputWriteHandle "Hello World!\n"
     (ouputReadHandle, outputWriteHandle) <- createBinaryPipe
-    _ <- run program (Map.fromList [(Place "input", Resource inputReadHandle), (Place "output", Resource outputWriteHandle)])
+    _ <- run program (Map.fromList [(LocalPlace "input", Resource inputReadHandle), (LocalPlace "output", Resource outputWriteHandle)])
     text <- hGetContents ouputReadHandle
     "!dlroW olleH\n" @=? text
 
@@ -47,17 +47,17 @@ pipeWord8Twice :: TestTree
 pipeWord8Twice = localOption (mkTimeout 2000000) $ testGroup "Pipe Word8 (twice)"
     [ testProgram "First to Second" pipeWord8TwiceProgram $ \program -> test program '1'
         $ \sourceReadHandle intermediateWriteHandle intermediateReadHandle sinkWriteHandle -> Map.fromList
-        [ (Place "firstInput", Resource sourceReadHandle)
-        , (Place "firstOutput", Resource intermediateWriteHandle)
-        , (Place "secondInput", Resource intermediateReadHandle)
-        , (Place "secondOutput", Resource sinkWriteHandle)
+        [ (LocalPlace "firstInput", Resource sourceReadHandle)
+        , (LocalPlace "firstOutput", Resource intermediateWriteHandle)
+        , (LocalPlace "secondInput", Resource intermediateReadHandle)
+        , (LocalPlace "secondOutput", Resource sinkWriteHandle)
         ]
     , testProgram "Second to First" pipeWord8TwiceProgram $ \program -> test program '2'
         $ \sourceReadHandle intermediateWriteHandle intermediateReadHandle sinkWriteHandle -> Map.fromList
-        [ (Place "firstInput", Resource intermediateReadHandle)
-        , (Place "firstOutput", Resource sinkWriteHandle)
-        , (Place "secondInput", Resource sourceReadHandle)
-        , (Place "secondOutput", Resource intermediateWriteHandle)
+        [ (LocalPlace "firstInput", Resource intermediateReadHandle)
+        , (LocalPlace "firstOutput", Resource sinkWriteHandle)
+        , (LocalPlace "secondInput", Resource sourceReadHandle)
+        , (LocalPlace "secondOutput", Resource intermediateWriteHandle)
         ]
     ]
   where

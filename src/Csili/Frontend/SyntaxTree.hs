@@ -1,5 +1,9 @@
 module Csili.Frontend.SyntaxTree
 ( SyntaxTree(..)
+, Net(..)
+, Instance
+, Template
+, Place
 , Symbol
 , Var
 , Pattern
@@ -14,17 +18,26 @@ module Csili.Frontend.SyntaxTree
 import Data.Text (Text)
 
 data SyntaxTree = SyntaxTree
-    { interface :: ([Text], [Text])
-    , internalPlaces :: [Text]
-    , marking :: [(Text, Term)]
+    { mainNet :: Net
+    , nets :: [(Template, Net)]
+    }
+
+data Net = Net
+    { instances :: [(Instance, Template)]
+    , interface :: ([Place], [Place])
+    , internalPlaces :: [Place]
+    , marking :: [(Place, Term)]
     , transitions :: [(Text, ([Pattern], [ConstructionRule], [Effect]))]
     }
 
+type Instance = Text
+type Template = Text
+type Place = [Text]
 type Symbol = Text
 type Var = Text
-type Pattern = (Text, Term)
-type ConstructionRule = (Text, Term)
-type Effect = (Text, Term)
+type Pattern = (Place, Term)
+type ConstructionRule = (Place, Term)
+type Effect = (Place, Term)
 
 data Term
     = Function Symbol [Term]

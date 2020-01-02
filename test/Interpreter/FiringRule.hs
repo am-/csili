@@ -27,8 +27,8 @@ unmarkedPreset = do
     fire t emptyMarking >>= (Nothing @=?)
   where
     t = (mkTransition "t")
-        { patterns = Map.fromList [(Place "p1", WildcardPattern)]
-        , productions = Map.fromList [(Place "p2", Construct $ FunctionConstruction (Symbol "nil") [])]
+        { patterns = Map.fromList [(LocalPlace "p1", WildcardPattern)]
+        , productions = Map.fromList [(LocalPlace "p2", Construct $ FunctionConstruction (Symbol "nil") [])]
         }
 
 markedProductionPlace :: Assertion
@@ -36,10 +36,10 @@ markedProductionPlace = do
     False @=? isEnabled t marking
     fire t marking >>= (Nothing @=?)
   where
-    marking = Map.fromList [(Place "p1", nil), (Place "p2", nil)]
+    marking = Map.fromList [(LocalPlace "p1", nil), (LocalPlace "p2", nil)]
     t = (mkTransition "t")
-        { patterns = Map.fromList [(Place "p1", WildcardPattern)]
-        , productions = Map.fromList [(Place "p2", Construct $ FunctionConstruction (Symbol "nil") [])]
+        { patterns = Map.fromList [(LocalPlace "p1", WildcardPattern)]
+        , productions = Map.fromList [(LocalPlace "p2", Construct $ FunctionConstruction (Symbol "nil") [])]
         }
 
 markedEffectPlace :: Assertion
@@ -47,10 +47,10 @@ markedEffectPlace = do
     False @=? isEnabled t marking
     fire t marking >>= (Nothing @=?)
   where
-    marking = Map.fromList [(Place "p1", nil), (Place "p2", nil)]
+    marking = Map.fromList [(LocalPlace "p1", nil), (LocalPlace "p2", nil)]
     t = (mkTransition "t")
-        { patterns = Map.fromList [(Place "p1", VariablePattern (Var "S"))]
-        , productions = Map.fromList [(Place "p2", Evaluate $ WriteWord8 (Substitution (Var "S")) nullWord8)]
+        { patterns = Map.fromList [(LocalPlace "p1", VariablePattern (Var "S"))]
+        , productions = Map.fromList [(LocalPlace "p2", Evaluate $ WriteWord8 (Substitution (Var "S")) nullWord8)]
         }
     nullWord8 = FunctionConstruction (Symbol "word8") $ replicate 8 (FunctionConstruction (Symbol "zero") [])
 
@@ -59,7 +59,7 @@ noPreset = do
     True @=? isEnabled t emptyMarking
     fire t emptyMarking >>= (Just expectedMarking @=?)
   where
-    place = Place "p"
+    place = LocalPlace "p"
     t = (mkTransition "t")
         { productions = Map.fromList [(place, Construct $ FunctionConstruction (Symbol "nil") [])]
         }
@@ -70,9 +70,9 @@ noPostset = do
     True @=? isEnabled t marking
     fire t marking >>= (Just expectedMarking @=?)
   where
-    marking = Map.fromList [(Place "p", nil)]
+    marking = Map.fromList [(LocalPlace "p", nil)]
     t = (mkTransition "t")
-        { patterns = Map.fromList [(Place "p", VariablePattern (Var "V"))]
+        { patterns = Map.fromList [(LocalPlace "p", VariablePattern (Var "V"))]
         }
     expectedMarking = Map.empty
 
@@ -81,10 +81,10 @@ noMatch = do
     False @=? isEnabled t marking
     fire t marking >>= (Nothing @=?)
   where
-    marking = Map.fromList [(Place "p1", nil)]
+    marking = Map.fromList [(LocalPlace "p1", nil)]
     t = (mkTransition "t")
-        { patterns = Map.fromList [(Place "p1", FunctionPattern (Symbol "cons") [WildcardPattern, WildcardPattern])]
-        , productions = Map.fromList [(Place "p2", Construct $ FunctionConstruction (Symbol "nil") [])]
+        { patterns = Map.fromList [(LocalPlace "p1", FunctionPattern (Symbol "cons") [WildcardPattern, WildcardPattern])]
+        , productions = Map.fromList [(LocalPlace "p2", Construct $ FunctionConstruction (Symbol "nil") [])]
         }
 
 sling :: Assertion
@@ -93,23 +93,23 @@ sling = do
     fire t marking >>= (Just expectedMarking @=?)
   where
     var = Var "V"
-    marking = Map.fromList [(Place "p", nil)]
+    marking = Map.fromList [(LocalPlace "p", nil)]
     t = (mkTransition "t")
-        { patterns = Map.fromList [(Place "p", VariablePattern var)]
-        , productions = Map.fromList [(Place "p", Construct $ FunctionConstruction (Symbol "cons") [FunctionConstruction (Symbol "blackToken") [], Substitution var])]
+        { patterns = Map.fromList [(LocalPlace "p", VariablePattern var)]
+        , productions = Map.fromList [(LocalPlace "p", Construct $ FunctionConstruction (Symbol "cons") [FunctionConstruction (Symbol "blackToken") [], Substitution var])]
         }
-    expectedMarking = Map.fromList [(Place "p", cons blackToken nil)]
+    expectedMarking = Map.fromList [(LocalPlace "p", cons blackToken nil)]
 
 matchAll :: Assertion
 matchAll = do
     True @=? isEnabled t marking
     fire t marking >>= (Just expectedMarking @=?)
   where
-    p2 = Place "p2"
+    p2 = LocalPlace "p2"
     var = Var "V"
-    marking = Map.fromList [(Place "p1", nil)]
+    marking = Map.fromList [(LocalPlace "p1", nil)]
     t = (mkTransition "t")
-        { patterns = Map.fromList [(Place "p1", VariablePattern var)]
+        { patterns = Map.fromList [(LocalPlace "p1", VariablePattern var)]
         , productions = Map.fromList [(p2, Construct $ Substitution var)]
         }
     expectedMarking = Map.fromList [(p2, nil)]
@@ -120,9 +120,9 @@ missingVariable = do
     True @=? isEnabled t marking
     fire t marking >>= (Nothing @=?)
   where
-    p2 = Place "p2"
-    marking = Map.fromList [(Place "p1", nil)]
+    p2 = LocalPlace "p2"
+    marking = Map.fromList [(LocalPlace "p1", nil)]
     t = (mkTransition "t")
-        { patterns = Map.fromList [(Place "p1", WildcardPattern)]
+        { patterns = Map.fromList [(LocalPlace "p1", WildcardPattern)]
         , productions = Map.fromList [(p2, Construct $ Substitution (Var "V"))]
         }

@@ -22,8 +22,8 @@ reverseProgram = "examples/list/reverse.csl"
 reverseEmptyList :: TestTree
 reverseEmptyList = testProgramAgainstMarking "Reverse (empty)" reverseProgram marking expectation
   where
-    marking = Map.fromList [(Place "input", nil)]
-    expectation = Map.fromList [(Place "output", nil)]
+    marking = Map.fromList [(LocalPlace "input", nil)]
+    expectation = Map.fromList [(LocalPlace "output", nil)]
 
 reverseNonEmptyList :: TestTree
 reverseNonEmptyList = testProgramAgainstMarking "Reverse (non-empty)" reverseProgram marking expectation
@@ -33,15 +33,15 @@ reverseNonEmptyList = testProgramAgainstMarking "Reverse (non-empty)" reversePro
     z = FunctionToken (Symbol "z") []
     list = cons x . cons y . cons z $ nil
     reversedList = cons z . cons y . cons x $ nil
-    marking = Map.fromList [(Place "input", list)]
-    expectation = Map.fromList [(Place "output", reversedList)]
+    marking = Map.fromList [(LocalPlace "input", list)]
+    expectation = Map.fromList [(LocalPlace "output", reversedList)]
 
 boolsGeneratorProgram :: FilePath
 boolsGeneratorProgram = "examples/list/bools-generator.csl"
 
 boolsGenerator :: TestTree
 boolsGenerator = testProgram "Bools Generator" boolsGeneratorProgram $ \program -> do
-    Just (falses, trues) <- fmap (count (0, 0)) . Map.lookup (Place "bools") <$> run program marking
+    Just (falses, trues) <- fmap (count (0, 0)) . Map.lookup (LocalPlace "bools") <$> run program marking
     assertIsBelowThreshold "falses" falses
     assertIsBelowThreshold "trues" trues
   where
@@ -50,7 +50,7 @@ boolsGenerator = testProgram "Bools Generator" boolsGeneratorProgram $ \program 
         (n < threshold)
     size = 100
     threshold = 7 * (size `div` 10)
-    marking = Map.fromList [(Place "tokens", foldl (flip cons) nil (replicate size blackToken))]
+    marking = Map.fromList [(LocalPlace "tokens", foldl (flip cons) nil (replicate size blackToken))]
     count :: (Int, Int) -> Token -> (Int, Int)
     count (falses, trues) = \case
         FunctionToken (Symbol "nil") [] -> (falses, trues)
