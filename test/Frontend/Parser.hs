@@ -11,6 +11,8 @@ import Csili.Frontend.SyntaxTree
 tests :: TestTree
 tests = testGroup "Parser"
     [ terms
+    , tokenTypeBlocks
+    , instancesBlocks
     , interfaceBlocks
     , placeBlocks
     , markingBlocks
@@ -98,6 +100,50 @@ wildcardWithName = Right Wildcard @=? parseOnly term "_foobar"
 
 wildcardWithinFunction :: Assertion
 wildcardWithinFunction = Right (Function "cons" [Wildcard, Wildcard]) @=? parseOnly term "cons(_Head, _)"
+
+tokenTypeBlocks :: TestTree
+tokenTypeBlocks = testGroup "Token Type"
+    [ testCase "Empty" emptyTokenType
+    , testCase "Single Constructor" tokenTypeWithSingleConstructor
+    , testCase "Multiple Constructors" tokenTypeWithMultipleConstructors
+    , testCase "Recursive Constructors" tokenTypeWithRecursiveConstructors
+    ]
+
+emptyTokenType :: Assertion
+emptyTokenType = Right expectation @=? parseOnly tokenType "TOKEN void {}"
+  where
+    expectation = ("void", [])
+
+tokenTypeWithSingleConstructor :: Assertion
+tokenTypeWithSingleConstructor = Right expectation @=? parseOnly tokenType "TOKEN blackToken { blackToken }"
+  where
+    expectation = ("blackToken", [Function "blackToken" []])
+
+tokenTypeWithMultipleConstructors :: Assertion
+tokenTypeWithMultipleConstructors = Right expectation @=? parseOnly tokenType "TOKEN bool { false true }"
+  where
+    expectation = ("bool", [Function "false" [], Function "true" []])
+
+tokenTypeWithRecursiveConstructors :: Assertion
+tokenTypeWithRecursiveConstructors = Right expectation @=? parseOnly tokenType "TOKEN unary { zero succ(unary) }"
+  where
+    expectation = ("unary", [Function "zero" [], Function "succ" [Function "unary" []]])
+
+instancesBlocks :: TestTree
+instancesBlocks = testGroup "Instances"
+    [ testCase "Empty" emptyInstances
+    , testCase "Non-Empty" nonEmptyInstances
+    ]
+
+emptyInstances :: Assertion
+emptyInstances = Right expectation @=? parseOnly instancesBlock "INSTANCES {}"
+  where
+    expectation = []
+
+nonEmptyInstances :: Assertion
+nonEmptyInstances = Right expectation @=? parseOnly instancesBlock "INSTANCES { a: x b: y }"
+  where
+    expectation = [("a", "x"), ("b", "y")]
 
 interfaceBlocks :: TestTree
 interfaceBlocks = testGroup "Interface"

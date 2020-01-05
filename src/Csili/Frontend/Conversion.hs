@@ -21,7 +21,8 @@ import qualified Csili.Frontend.SyntaxTree as SyntaxTree
 import Csili.Program hiding (effects)
 
 data ConversionError
-    = DuplicateTemplate TemplateName
+    = DuplicateTokenType TokenTypeName
+    | DuplicateTemplate TemplateName
     | CyclicTemplates [TemplateName]
     | DuplicateInstance TemplateInstance
     | DuplicateInputPlace Place
@@ -45,8 +46,14 @@ type Actual = Int
 
 convert :: SyntaxTree -> Validation [ConversionError] Program
 convert tree = Program
-    <$> toNet (SyntaxTree.mainNet tree)
+    <$> toTokenTypes (SyntaxTree.tokenTypes tree)
+    <*> toNet (SyntaxTree.mainNet tree)
     <*> bindValidation (toTemplates $ SyntaxTree.nets tree) ensureAcyclicity
+
+toTokenTypes :: [SyntaxTree.TokenType] -> Validation [ConversionError] (Map TokenTypeName TokenTypeConstructors)
+toTokenTypes types = case findDuplicates (map fst types) of
+    [] -> pure Map.empty
+    duplicates -> Failure $ map (DuplicateTokenType . TokenTypeName) duplicates
 
 toTemplates :: [(Text, SyntaxTree.Net)] -> Validation [ConversionError] (Map TemplateName Net)
 toTemplates nets = case findDuplicates (map fst nets) of

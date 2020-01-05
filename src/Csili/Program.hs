@@ -4,6 +4,11 @@ module Csili.Program
 ( Program(..)
 , emptyProgram
 
+, TokenTypeName(..)
+, TokenTypeConstructors(..)
+, TokenConstructorName(..)
+, TokenType(..)
+
 , Net(..)
 , TemplateName(..)
 , TemplateInstance(..)
@@ -64,9 +69,22 @@ import System.IO (Handle)
 import Data.Maybe (mapMaybe)
 
 data Program = Program
-    { mainNet :: Net
+    { tokenTypes :: Map TokenTypeName TokenTypeConstructors
+    , mainNet :: Net
     , templates :: Map TemplateName Net
     } deriving (Show, Eq)
+
+newtype TokenTypeName = TokenTypeName Text
+    deriving (Show, Eq, Ord)
+
+newtype TokenTypeConstructors = TokenTypeConstructors (Map TokenConstructorName [TokenType])
+    deriving (Show, Eq)
+
+newtype TokenConstructorName = TokenConstructorName Text
+    deriving (Show, Eq, Ord)
+
+newtype TokenType = TokenType TokenTypeName
+    deriving (Show, Eq, Ord)
 
 newtype TemplateName = TemplateName Text
     deriving (Show, Eq, Ord)
@@ -79,7 +97,8 @@ instance Semigroup TemplateInstance where
 
 emptyProgram :: Program
 emptyProgram = Program
-    { mainNet = emptyNet
+    { tokenTypes = Map.empty
+    , mainNet = emptyNet
     , templates = Map.empty
     }
 

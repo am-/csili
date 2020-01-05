@@ -9,6 +9,7 @@ import Test.Tasty.HUnit
 import Csili.Program
 import Csili.Frontend
 
+import qualified Frontend.Program.TokenType as TokenType
 import qualified Frontend.Program.Places as Places
 import qualified Frontend.Program.Marking as Marking
 import qualified Frontend.Program.Transitions as Transitions
@@ -17,6 +18,7 @@ import qualified Frontend.Program.Templates as Templates
 tests :: TestTree
 tests = testGroup "Program"
     [ programTests
+    , TokenType.tests
     , Templates.tests
     , Places.tests
     , Marking.tests

@@ -3,6 +3,8 @@ module Csili.Frontend.Parser
 , Term(..)
 , file
 , term
+, tokenType
+, instancesBlock
 , interfaceBlock
 , placesBlock
 , markingBlock
@@ -23,12 +25,16 @@ file = clean *> syntaxTree <* endOfInput
 
 syntaxTree :: Parser SyntaxTree
 syntaxTree = SyntaxTree
-    <$> net
+    <$> many tokenType
+    <*> net
     <*> many template
 
 --------------------------------------------------------------------------------
--- Terms
+-- Tokens
 --------------------------------------------------------------------------------
+
+tokenType :: Parser TokenType
+tokenType = namedBlock "TOKEN" identifier (many (fullClean function))
 
 term :: Parser Term
 term = fullClean (variable <|> function <|> token <|> bit <|> word8 <|> int64 <|> wildcard)
