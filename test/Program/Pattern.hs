@@ -1,14 +1,13 @@
-module Interpreter.PatternMatching where
+module Program.Pattern where
 
 import qualified Data.Map.Strict as Map
 import Test.Tasty
 import Test.Tasty.HUnit
 
 import Csili.Program
-import Csili.Interpreter
 
 tests :: TestTree
-tests = testGroup "Pattern Matching"
+tests = testGroup "Pattern"
     [ matching
     , substitution
     ]

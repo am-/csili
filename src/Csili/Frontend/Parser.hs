@@ -34,7 +34,7 @@ syntaxTree = SyntaxTree
 --------------------------------------------------------------------------------
 
 tokenType :: Parser TokenType
-tokenType = namedBlock "TOKEN" identifier (many (fullClean function))
+tokenType = namedBlock "TOKEN" identifier (many term)
 
 term :: Parser Term
 term = fullClean (variable <|> function <|> token <|> bit <|> word8 <|> int64 <|> wildcard)

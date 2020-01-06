@@ -21,7 +21,12 @@ import qualified Csili.Frontend.SyntaxTree as SyntaxTree
 import Csili.Program hiding (effects)
 
 data ConversionError
-    = DuplicateTokenType TokenTypeName
+    = DuplicateTokenType TokenType
+    | DuplicateTokenConstructor TokenType Symbol
+    | VariableInTokenConstructor TokenType Var
+    | WildcardInTokenConstructor TokenType
+    | VariableInTokenTypeArgument TokenType Symbol Var
+    | WildcardInTokenTypeArgument TokenType Symbol
     | DuplicateTemplate TemplateName
     | CyclicTemplates [TemplateName]
     | DuplicateInstance TemplateInstance
@@ -50,10 +55,34 @@ convert tree = Program
     <*> toNet (SyntaxTree.mainNet tree)
     <*> bindValidation (toTemplates $ SyntaxTree.nets tree) ensureAcyclicity
 
-toTokenTypes :: [SyntaxTree.TokenType] -> Validation [ConversionError] (Map TokenTypeName TokenTypeConstructors)
+toTokenTypes :: [SyntaxTree.TokenType] -> Validation [ConversionError] (Map TokenType TokenTypeConstructors)
 toTokenTypes types = case findDuplicates (map fst types) of
-    [] -> pure Map.empty
-    duplicates -> Failure $ map (DuplicateTokenType . TokenTypeName) duplicates
+    [] -> Map.fromList <$> traverse toTokenType types
+    duplicates -> Failure $ map (DuplicateTokenType . TokenType) duplicates
+
+toTokenType :: SyntaxTree.TokenType -> Validation [ConversionError] (TokenType, TokenTypeConstructors)
+toTokenType (tokenTypeName, terms) = (,) tokenType <$> toTokenTypeConstructors tokenType terms
+  where
+    tokenType = TokenType tokenTypeName
+
+toTokenTypeConstructors :: TokenType -> [SyntaxTree.Term] -> Validation [ConversionError] TokenTypeConstructors
+toTokenTypeConstructors tokenType terms = bindValidation wrappedConstructors $ \constructors -> case findDuplicates (map fst constructors) of
+    [] -> pure . TokenTypeConstructors $ Map.fromList constructors
+    duplicates -> Failure $ map (DuplicateTokenConstructor tokenType) duplicates
+  where
+    wrappedConstructors = traverse (toTokenTypeConstructor tokenType) terms
+
+toTokenTypeConstructor :: TokenType -> SyntaxTree.Term -> Validation [ConversionError] (Symbol, [TokenTypeArgument])
+toTokenTypeConstructor tokenType = \case
+    SyntaxTree.Function symbol terms -> (,) (Symbol symbol) <$> traverse (toTokenTypeArgument tokenType (Symbol symbol)) terms
+    SyntaxTree.Variable var -> Failure [VariableInTokenConstructor tokenType (Var var)]
+    SyntaxTree.Wildcard -> Failure [WildcardInTokenConstructor tokenType]
+
+toTokenTypeArgument :: TokenType -> Symbol -> SyntaxTree.Term -> Validation [ConversionError] TokenTypeArgument
+toTokenTypeArgument tokenType constructor = \case
+    SyntaxTree.Function symbol _ -> pure . TokenTypeArgument $ TokenType symbol
+    SyntaxTree.Variable var -> Failure [VariableInTokenTypeArgument tokenType constructor (Var var)]
+    SyntaxTree.Wildcard -> Failure [WildcardInTokenTypeArgument tokenType constructor]
 
 toTemplates :: [(Text, SyntaxTree.Net)] -> Validation [ConversionError] (Map TemplateName Net)
 toTemplates nets = case findDuplicates (map fst nets) of
