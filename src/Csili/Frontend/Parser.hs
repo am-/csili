@@ -34,7 +34,10 @@ syntaxTree = SyntaxTree
 --------------------------------------------------------------------------------
 
 tokenType :: Parser TokenType
-tokenType = namedBlock "TOKEN" identifier (many term)
+tokenType = namedBlock "TOKEN" (functionTerm lowerCaseIdentifier (fullClean upperCaseIdentifier)) (many tokenTypeTerm)
+
+tokenTypeTerm :: Parser Term
+tokenTypeTerm = fullClean (variable <|> function <|> wildcard)
 
 term :: Parser Term
 term = fullClean (variable <|> function <|> token <|> bit <|> word8 <|> int64 <|> wildcard)
@@ -43,7 +46,7 @@ variable :: Parser Term
 variable = Variable <$> upperCaseIdentifier
 
 function :: Parser Term
-function = uncurry Function <$> functionTerm (lowerCaseIdentifier) term
+function = uncurry Function <$> functionTerm lowerCaseIdentifier term
 
 token :: Parser Term
 token = const blackToken <$> char '@'

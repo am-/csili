@@ -42,7 +42,8 @@ type Pattern = (Place, Term)
 type ConstructionRule = (Place, Term)
 type Effect = (Place, Term)
 type TokenTypeName = Text
-type TokenType = (TokenTypeName, [Term])
+type TokenTypeVariable = Text
+type TokenType = ((TokenTypeName, [TokenTypeVariable]), [Term])
 
 data Term
     = Function Symbol [Term]

@@ -1,9 +1,11 @@
 module Csili.Program.Token
 ( Symbol(..)
 , Token(..)
-, TokenType(..)
+, TokenTypeName(..)
+, TokenTypeDefinition(..)
 , TokenTypeConstructors(..)
-, TokenTypeArgument(..)
+, TokenType(..)
+, TokenTypeVariable(..)
 
 , blackToken
 , false
@@ -26,13 +28,21 @@ data Token
     | Resource Handle
     deriving (Show, Eq)
 
-newtype TokenType = TokenType Text
+data TokenTypeDefinition = TokenTypeDefinition TokenTypeName [TokenTypeVariable]
     deriving (Show, Eq, Ord)
 
-newtype TokenTypeConstructors = TokenTypeConstructors (Map Symbol [TokenTypeArgument])
+data TokenTypeName = TokenTypeName Text
+    deriving (Show, Eq, Ord)
+
+newtype TokenTypeVariable = TokenTypeVariable Text
+    deriving (Show, Eq, Ord)
+
+newtype TokenTypeConstructors = TokenTypeConstructors (Map Symbol [TokenType])
     deriving (Show, Eq)
 
-newtype TokenTypeArgument = TokenTypeArgument TokenType
+data TokenType
+    = TokenType TokenTypeName [TokenType]
+    | TokenTypeSubstitution TokenTypeVariable
     deriving (Show, Eq, Ord)
 
 blackToken :: Token

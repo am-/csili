@@ -112,22 +112,22 @@ tokenTypeBlocks = testGroup "Token Type"
 emptyTokenType :: Assertion
 emptyTokenType = Right expectation @=? parseOnly tokenType "TOKEN void {}"
   where
-    expectation = ("void", [])
+    expectation = (("void", []), [])
 
 tokenTypeWithSingleConstructor :: Assertion
 tokenTypeWithSingleConstructor = Right expectation @=? parseOnly tokenType "TOKEN blackToken { blackToken }"
   where
-    expectation = ("blackToken", [Function "blackToken" []])
+    expectation = (("blackToken", []), [Function "blackToken" []])
 
 tokenTypeWithMultipleConstructors :: Assertion
 tokenTypeWithMultipleConstructors = Right expectation @=? parseOnly tokenType "TOKEN bool { false true }"
   where
-    expectation = ("bool", [Function "false" [], Function "true" []])
+    expectation = (("bool", []), [Function "false" [], Function "true" []])
 
 tokenTypeWithRecursiveConstructors :: Assertion
 tokenTypeWithRecursiveConstructors = Right expectation @=? parseOnly tokenType "TOKEN unary { zero succ(unary) }"
   where
-    expectation = ("unary", [Function "zero" [], Function "succ" [Function "unary" []]])
+    expectation = (("unary", []), [Function "zero" [], Function "succ" [Function "unary" []]])
 
 instancesBlocks :: TestTree
 instancesBlocks = testGroup "Instances"

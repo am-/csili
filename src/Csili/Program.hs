@@ -25,7 +25,7 @@ import Csili.Program.Pattern
 import Csili.Program.Token
 
 data Program = Program
-    { tokenTypes :: Map TokenType TokenTypeConstructors
+    { tokenTypes :: Map TokenTypeDefinition TokenTypeConstructors
     , mainNet :: Net
     , templates :: Map TemplateName Net
     } deriving (Show, Eq)
